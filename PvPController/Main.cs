@@ -14,6 +14,13 @@ namespace PvPController
     {
         public Timer OnSecondUpdate;
         public static Config Config = new Config();
+
+        // Tracks what weapon created what projectile for the specified projectile index
+        public static Item[] ProjectileWeapon = new Item[400];
+
+        // Tracks The last active bow weapon for the specified player index
+        public static Item[] LastActiveBow = new Item[255];
+
         public override string Author
         {
             get

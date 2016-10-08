@@ -68,9 +68,11 @@
     <Compile Include="Config.cs" />
     <Compile Include="ConfigWeaponBuff.cs" />
     <Compile Include="ConfigProjectileDamage.cs" />
+    <Compile Include="ConfigWeaponDamage.cs" />
     <Compile Include="DataHandlers.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Utils.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

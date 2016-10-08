@@ -13,6 +13,7 @@ namespace PvPController
         public bool HideDisallowedProjectiles;
         public ConfigWeaponBuff[] WeaponBuff;
         public ConfigProjectileDamage[] ProjectileModification;
+        public ConfigWeaponDamage[] WeaponModification;
 
         public void Write(string path)
         {
@@ -40,13 +41,20 @@ namespace PvPController
 
             var defaultWeaponBuff = new ConfigWeaponBuff();
             defaultWeaponBuff.weaponID = 1254;
-            defaultWeaponBuff.immobiliseMilliseconds = 500;
+            defaultWeaponBuff.immobiliseMilliseconds = 1000;
             defaultWeaponBuff.debuffID = 149;
 
             var defaultProjectileModification = new ConfigProjectileDamage();
             defaultProjectileModification.projectileID = 260;
-            defaultProjectileModification.damageRatio = 200f;
+            defaultProjectileModification.damageRatio = 2f;
+
+            var defaultWeaponModification = new ConfigWeaponDamage();
+            defaultWeaponModification.weaponID = 1827;
+            defaultWeaponModification.damageRatio = 8f;
+
             Conf.WeaponBuff = new ConfigWeaponBuff[] { defaultWeaponBuff };
+            Conf.ProjectileModification = new ConfigProjectileDamage[] { defaultProjectileModification };
+            Conf.WeaponModification = new ConfigWeaponDamage[] { defaultWeaponModification };
             Conf.Write(file);   
         }
     }

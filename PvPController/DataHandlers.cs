@@ -77,7 +77,8 @@ namespace PvPController
 
         /* Handles the case when the player shoots a banned projectile and
          * starts a stopwatch from the moment they use it, or reset
-         * the existing stopwatch.
+         * the existing stopwatch. It also updates the array of ProjectileWeapon
+         * so that the projectile can be traced back to its weapon.
          * 
          * @param args
          *          The GetDataHandlerArgs containing the player that sent the packet and the data of the packet
@@ -145,6 +146,40 @@ namespace PvPController
                     }
                 }
             }
+
+            // Check that they either own the projectile, or it is inactive (and therefore this is a new one)
+            if (Main.projectile[ident].active == false || Main.projectile[ident].owner == owner)
+            {
+                // Used if we need an instance of Item that we can't link to an inventory slot
+                Item fabricatedItem;
+                switch (type)
+                {
+                    case 640: // Luminite Arrow (second phase)
+                        PvPController.ProjectileWeapon[ident] = PvPController.LastActiveBow[args.Player.Index];
+                        break;
+
+                    case 245: // Crimson Rain
+                        fabricatedItem = (new Item());
+                        fabricatedItem.SetDefaults(1256);
+                        PvPController.ProjectileWeapon[ident] = fabricatedItem;
+                        break;
+
+                    case 239: // Nimbus Rain
+                        fabricatedItem = (new Item());
+                        fabricatedItem.SetDefaults(1244);
+                        PvPController.ProjectileWeapon[ident] = fabricatedItem;
+                        break;
+
+                    default:
+                        if (Utils.IsBow(args.Player.SelectedItem))
+                        {
+                            PvPController.LastActiveBow[args.Player.Index] = args.Player.SelectedItem;
+                        }
+                        PvPController.ProjectileWeapon[ident] = args.Player.SelectedItem;
+                        break;
+                }
+            }
+
             return false;
         }
 
@@ -281,8 +316,19 @@ namespace PvPController
                     if (PvPController.Config.ProjectileModification.Count(p => p.projectileID == closestProjectile.type) > 0)
                     {
                         // Get then apply modification to damage
-                        var modification = PvPController.Config.ProjectileModification.FirstOrDefault(p => p.projectileID == closestProjectile.type);
-                        damage = Convert.ToInt16(damage*modification.damageRatio);
+                        var projectileModification = PvPController.Config.ProjectileModification.FirstOrDefault(p => p.projectileID == closestProjectile.type);
+                        
+                        // Get the weapon and whether a modification exists
+                        var weapon = PvPController.ProjectileWeapon[closestProjectile.identity];
+                        var weaponModificationExists = PvPController.Config.WeaponModification.Count(p => p.weaponID == weapon.netID) > 0;
+
+                        damage = Convert.ToInt16(damage*projectileModification.damageRatio);
+
+                        if (weaponModificationExists)
+                        {
+                            var weaponModification = PvPController.Config.WeaponModification.FirstOrDefault(p => p.weaponID == weapon.netID);
+                            damage = Convert.ToInt16(damage * weaponModification.damageRatio);
+                        }
 
                         // Get damage dealt to display as purple combat text
                         int life = Main.player[playerId].statLife;
@@ -301,6 +347,37 @@ namespace PvPController
                         // Send the damage using the special method to avoid invincibility frames issue
                         SendPlayerDamage(TShock.Players[playerId], dir, damage);
                         return true;
+                    }
+                }
+                // Otherwise check the weapon to see if it is melee, check damage and modify if necessary
+                else
+                {
+                    if (args.Player.SelectedItem.melee && Math.Abs(args.Player.SelectedItem.damage - damage) < 60)
+                    {
+                        if (PvPController.Config.WeaponModification.Count(p => p.weaponID == args.Player.SelectedItem.netID) > 0)
+                        {
+                            // Get then apply modification to damage
+                            var modification = PvPController.Config.WeaponModification.FirstOrDefault(p => p.weaponID == args.Player.SelectedItem.netID);
+                            damage = Convert.ToInt16(damage * modification.damageRatio);
+
+                            // Get damage dealt to display as purple combat text
+                            int life = Main.player[playerId].statLife;
+                            Main.player[playerId].Hurt(damage, 0, true);
+                            int realDamage = life - Main.player[playerId].statLife;
+
+                            /* Send out the HP value so that the client who now has the wrong value
+                             * (due to health being update before the packet is sent) can use the right one */
+                            args.Player.SendData(PacketTypes.PlayerHp, "", playerId);
+
+
+                            // Send the combat text
+                            var msgColor = new Color(162, 0, 255);
+                            NetMessage.SendData((int)PacketTypes.CreateCombatText, index, -1, $"{realDamage}", (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
+
+                            // Send the damage using the special method to avoid invincibility frames issue
+                            SendPlayerDamage(TShock.Players[playerId], dir, damage);
+                            return true;
+                        }
                     }
                 }
             }
