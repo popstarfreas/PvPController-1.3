@@ -8,7 +8,7 @@ namespace PvPController
 {
     public struct ConfigProjectileSpeed
     {
-        int projectileID;
-        float speedRatio;
+        public int projectileID;
+        public float speedRatio;
     }
 }

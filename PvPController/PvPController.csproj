@@ -65,10 +65,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Config.cs" />
-    <Compile Include="ConfigWeaponBuff.cs" />
-    <Compile Include="ConfigProjectileDamage.cs" />
-    <Compile Include="ConfigWeaponDamage.cs" />
+    <Compile Include="Config\Config.cs" />
+    <Compile Include="Config\ConfigProjectileSpeed.cs" />
+    <Compile Include="Config\ConfigWeaponBuff.cs" />
+    <Compile Include="Config\ConfigProjectileDamage.cs" />
+    <Compile Include="Config\ConfigWeaponDamage.cs" />
     <Compile Include="DataHandlers.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

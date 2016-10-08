@@ -13,6 +13,7 @@ namespace PvPController
         public bool HideDisallowedProjectiles;
         public ConfigWeaponBuff[] WeaponBuff;
         public ConfigProjectileDamage[] ProjectileModification;
+        public ConfigProjectileSpeed[] ProjectileSpeedModification;
         public ConfigWeaponDamage[] WeaponModification;
 
         public void Write(string path)
@@ -47,6 +48,10 @@ namespace PvPController
             var defaultProjectileModification = new ConfigProjectileDamage();
             defaultProjectileModification.projectileID = 260;
             defaultProjectileModification.damageRatio = 2f;
+
+            var defaultProjectileSpeedModification = new ConfigProjectileSpeed();
+            defaultProjectileSpeedModification.projectileID = 114;
+            defaultProjectileSpeedModification.speedRatio = 3f;
 
             var defaultWeaponModification = new ConfigWeaponDamage();
             defaultWeaponModification.weaponID = 1827;

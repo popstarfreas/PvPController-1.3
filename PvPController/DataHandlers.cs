@@ -100,8 +100,10 @@ namespace PvPController
             owner = (byte)args.Player.Index;
             float[] ai = new float[Projectile.maxAI];
 
-            if (PvPController.Config.BannedProjectileIDs.Contains(type) && args.Player.TPlayer.hostile)
+            if (args.Player.TPlayer.hostile)
             {
+                if (PvPController.Config.BannedProjectileIDs.Contains(type))
+                {
                     var proj = Main.projectile[ident];
                     proj.active = false;
                     proj.type = 0;
@@ -124,25 +126,46 @@ namespace PvPController
                     }
                     LastBannedUsage[args.Player.Index].Start();
 
-                    if ((DateTime.Now - LastMessage[args.Player.Index]).TotalSeconds > 2) {
+                    if ((DateTime.Now - LastMessage[args.Player.Index]).TotalSeconds > 2)
+                    {
                         args.Player.SendMessage("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++", Color.Red);
                         args.Player.SendMessage("That projectile does not work in PVP. Using it will cause you to do no damage!", Color.Red);
                         args.Player.SendMessage("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++", Color.Red);
                         LastMessage[args.Player.Index] = DateTime.Now;
                     }
                     return true;
-            }
-            else if (PvPController.Config.WeaponBuff.Count(p => p.weaponID == args.Player.SelectedItem.netID) > 0 && args.Player.TPlayer.hostile)
-            {
-                var proj = new Projectile();
-                proj.SetDefaults(type);
-                
-                if (proj.ranged && dmg > 0)
+                }
+                else
                 {
-                    var weaponBuffs = PvPController.Config.WeaponBuff.Where(p => p.weaponID == args.Player.SelectedItem.netID).ToList();
-                    foreach (var weaponBuff in weaponBuffs)
+                    if (PvPController.Config.WeaponBuff.Count(p => p.weaponID == args.Player.SelectedItem.netID) > 0)
                     {
-                        args.Player.SetBuff(weaponBuff.debuffID, Convert.ToInt32((weaponBuff.immobiliseMilliseconds / 1000f) * 60), true);
+                        var proj = new Projectile();
+                        proj.SetDefaults(type);
+
+                        if (proj.ranged && dmg > 0)
+                        {
+                            var weaponBuffs = PvPController.Config.WeaponBuff.Where(p => p.weaponID == args.Player.SelectedItem.netID).ToList();
+                            foreach (var weaponBuff in weaponBuffs)
+                            {
+                                args.Player.SetBuff(weaponBuff.debuffID, Convert.ToInt32((weaponBuff.immobiliseMilliseconds / 1000f) * 60), true);
+                            }
+                        }
+                    }
+
+                    if (PvPController.Config.ProjectileSpeedModification.Count(p => p.projectileID == type) > 0)
+                    {
+                        var modification = PvPController.Config.ProjectileSpeedModification.FirstOrDefault(p => p.projectileID == type);
+                        var proj = Main.projectile[ident];
+                        proj.damage = dmg;
+                        proj.active = true;
+                        proj.identity = ident;
+                        proj.type = type;
+                        proj.ai = ai;
+                        proj.owner = owner;
+                        proj.knockBack = knockback;
+                        proj.velocity = vel * modification.speedRatio;
+                        proj.position = pos;
+                        NetMessage.SendData((int)PacketTypes.ProjectileNew, -1, -1, "", ident);
                     }
                 }
             }
@@ -313,16 +336,19 @@ namespace PvPController
                 // Given a valid projectile, apply modification if it exists
                 if (closestProjectile != null)
                 {
-                    if (PvPController.Config.ProjectileModification.Count(p => p.projectileID == closestProjectile.type) > 0)
+                    // Get the weapon and whether a modification exists
+                    var weapon = PvPController.ProjectileWeapon[closestProjectile.identity];
+                    var weaponModificationExists = PvPController.Config.WeaponModification.Count(p => p.weaponID == weapon.netID) > 0;
+                    var projectileModificationExists = PvPController.Config.ProjectileModification.Count(p => p.projectileID == closestProjectile.type) > 0;
+
+                    if (projectileModificationExists || weaponModificationExists)
                     {
                         // Get then apply modification to damage
-                        var projectileModification = PvPController.Config.ProjectileModification.FirstOrDefault(p => p.projectileID == closestProjectile.type);
-                        
-                        // Get the weapon and whether a modification exists
-                        var weapon = PvPController.ProjectileWeapon[closestProjectile.identity];
-                        var weaponModificationExists = PvPController.Config.WeaponModification.Count(p => p.weaponID == weapon.netID) > 0;
-
-                        damage = Convert.ToInt16(damage*projectileModification.damageRatio);
+                        if (projectileModificationExists)
+                        {
+                            var projectileModification = PvPController.Config.ProjectileModification.FirstOrDefault(p => p.projectileID == closestProjectile.type);
+                            damage = Convert.ToInt16(damage * projectileModification.damageRatio);
+                        }
 
                         if (weaponModificationExists)
                         {
