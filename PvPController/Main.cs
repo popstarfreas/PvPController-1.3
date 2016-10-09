@@ -68,7 +68,7 @@ namespace PvPController
         {
             get
             {
-                return new Version(1, 3, 0);
+                return new Version(2, 0, 0);
             }
         }
 
