@@ -1,7 +1,8 @@
 ﻿namespace PvPController
 {
-    public struct ConfigWeaponDamage
+    public struct ControllerWeaponDamage
     {
+        public int entryID;
         public int weaponID;
         public float damageRatio;
     }

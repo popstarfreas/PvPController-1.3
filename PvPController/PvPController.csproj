@@ -66,10 +66,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Config\Config.cs" />
-    <Compile Include="Config\ConfigProjectileSpeed.cs" />
-    <Compile Include="Config\ConfigWeaponBuff.cs" />
-    <Compile Include="Config\ConfigProjectileDamage.cs" />
-    <Compile Include="Config\ConfigWeaponDamage.cs" />
+    <Compile Include="Controller\ControllerProjectileSpeed.cs" />
+    <Compile Include="Controller\ControllerProjectileBan.cs" />
+    <Compile Include="Controller\ControllerWeaponBuff.cs" />
+    <Compile Include="Controller\ControllerProjectileDamage.cs" />
+    <Compile Include="Controller\ControllerItemBan.cs" />
+    <Compile Include="Controller\ControllerWeaponDamage.cs" />
+    <Compile Include="Controller\Controller.cs" />
+    <Compile Include="Database.cs" />
     <Compile Include="DataHandlers.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

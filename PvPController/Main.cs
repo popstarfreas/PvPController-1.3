@@ -14,6 +14,25 @@ namespace PvPController
     {
         public Timer OnSecondUpdate;
         public static Config Config = new Config();
+        public static Controller Controller = new Controller();
+        public static string[] ControlTypes = {
+            "WeaponBan",
+            "ProjectileBan",
+            "ArmorBan",
+            "AccessoriesBan",
+            "ProjectileDamage",
+            "ProjectileSpeed",
+            "WeaponBuff",
+            "WeaponDamage"
+        };
+        public static string[] ControlEntryTypes = {
+            "ItemID",
+            "ProjectileID",
+            "BuffID",
+            "DamageRatio",
+            "SpeedRatio",
+            "Milliseconds"
+        };
 
         // Tracks what weapon created what projectile for the specified projectile index
         public static Item[] ProjectileWeapon = new Item[400];
@@ -49,7 +68,7 @@ namespace PvPController
         {
             get
             {
-                return new Version(1, 2, 0);
+                return new Version(1, 3, 0);
             }
         }
 
@@ -106,8 +125,8 @@ namespace PvPController
                                 // Armor and Accessories (active) are 0-9
                                 for (int slot = 0; slot <= 9; slot++)
                                 {
-                                    bool bannedArmor = Config.BannedArmorPieces.Contains(player.TPlayer.armor[slot].netID);
-                                    bool bannedAccessory = Config.BannedAccessories.Contains(player.TPlayer.armor[slot].netID);
+                                    bool bannedArmor = Controller.BannedArmorPieces.Count(p => p.itemID == player.TPlayer.armor[slot].netID) > 0;
+                                    bool bannedAccessory = Controller.BannedAccessories.Count(p => p.itemID == player.TPlayer.armor[slot].netID) > 0;
 
                                     if (bannedArmor || bannedAccessory)
                                     {

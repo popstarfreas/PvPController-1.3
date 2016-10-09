@@ -102,7 +102,7 @@ namespace PvPController
 
             if (args.Player.TPlayer.hostile)
             {
-                if (PvPController.Config.BannedProjectileIDs.Contains(type))
+                if (PvPController.Controller.BannedProjectileIDs.Count(p => p.projectileID == type) > 0)
                 {
                     var proj = Main.projectile[ident];
                     proj.active = false;
@@ -137,69 +137,68 @@ namespace PvPController
                 }
                 else
                 {
-                    if (PvPController.Config.WeaponBuff.Count(p => p.weaponID == args.Player.SelectedItem.netID) > 0)
+                    // Check that they either own the projectile, or it is inactive (and therefore this is a new one)
+                    if (Main.projectile[ident].active == false || Main.projectile[ident].owner == owner)
+                    {
+                        // Used if we need an instance of Item that we can't link to an inventory slot
+                        Item fabricatedItem;
+                        switch (type)
+                        {
+                            case 640: // Luminite Arrow (second phase)
+                                PvPController.ProjectileWeapon[ident] = PvPController.LastActiveBow[args.Player.Index];
+                                break;
+
+                            case 245: // Crimson Rain
+                                fabricatedItem = (new Item());
+                                fabricatedItem.SetDefaults(1256);
+                                PvPController.ProjectileWeapon[ident] = fabricatedItem;
+                                break;
+
+                            case 239: // Nimbus Rain
+                                fabricatedItem = (new Item());
+                                fabricatedItem.SetDefaults(1244);
+                                PvPController.ProjectileWeapon[ident] = fabricatedItem;
+                                break;
+
+                            default:
+                                if (Utils.IsBow(args.Player.SelectedItem))
+                                {
+                                    PvPController.LastActiveBow[args.Player.Index] = args.Player.SelectedItem;
+                                }
+                                PvPController.ProjectileWeapon[ident] = args.Player.SelectedItem;
+                                break;
+                        }
+                    }
+
+                    if (PvPController.Controller.WeaponBuff.Count(p => p.weaponID == args.Player.SelectedItem.netID) > 0)
                     {
                         var proj = new Projectile();
                         proj.SetDefaults(type);
 
                         if (proj.ranged && dmg > 0)
                         {
-                            var weaponBuffs = PvPController.Config.WeaponBuff.Where(p => p.weaponID == args.Player.SelectedItem.netID).ToList();
+                            var weaponBuffs = PvPController.Controller.WeaponBuff.Where(p => p.weaponID == args.Player.SelectedItem.netID).ToList();
                             foreach (var weaponBuff in weaponBuffs)
                             {
-                                args.Player.SetBuff(weaponBuff.debuffID, Convert.ToInt32((weaponBuff.immobiliseMilliseconds / 1000f) * 60), true);
+                                args.Player.SetBuff(weaponBuff.buffID, Convert.ToInt32((weaponBuff.buffMilliseconds / 1000f) * 60), true);
                             }
                         }
                     }
 
-                    if (PvPController.Config.ProjectileSpeedModification.Count(p => p.projectileID == type) > 0)
+                    if (PvPController.Controller.ProjectileSpeedModification.Count(p => p.projectileID == type) > 0)
                     {
-                        var modification = PvPController.Config.ProjectileSpeedModification.FirstOrDefault(p => p.projectileID == type);
+                        var modification = PvPController.Controller.ProjectileSpeedModification.FirstOrDefault(p => p.projectileID == type);
                         var proj = Main.projectile[ident];
+                        proj.SetDefaults(type);
                         proj.damage = dmg;
                         proj.active = true;
                         proj.identity = ident;
-                        proj.type = type;
-                        proj.ai = ai;
                         proj.owner = owner;
-                        proj.knockBack = knockback;
                         proj.velocity = vel * modification.speedRatio;
                         proj.position = pos;
                         NetMessage.SendData((int)PacketTypes.ProjectileNew, -1, -1, "", ident);
+                        return true;
                     }
-                }
-            }
-
-            // Check that they either own the projectile, or it is inactive (and therefore this is a new one)
-            if (Main.projectile[ident].active == false || Main.projectile[ident].owner == owner)
-            {
-                // Used if we need an instance of Item that we can't link to an inventory slot
-                Item fabricatedItem;
-                switch (type)
-                {
-                    case 640: // Luminite Arrow (second phase)
-                        PvPController.ProjectileWeapon[ident] = PvPController.LastActiveBow[args.Player.Index];
-                        break;
-
-                    case 245: // Crimson Rain
-                        fabricatedItem = (new Item());
-                        fabricatedItem.SetDefaults(1256);
-                        PvPController.ProjectileWeapon[ident] = fabricatedItem;
-                        break;
-
-                    case 239: // Nimbus Rain
-                        fabricatedItem = (new Item());
-                        fabricatedItem.SetDefaults(1244);
-                        PvPController.ProjectileWeapon[ident] = fabricatedItem;
-                        break;
-
-                    default:
-                        if (Utils.IsBow(args.Player.SelectedItem))
-                        {
-                            PvPController.LastActiveBow[args.Player.Index] = args.Player.SelectedItem;
-                        }
-                        PvPController.ProjectileWeapon[ident] = args.Player.SelectedItem;
-                        break;
                 }
             }
 
@@ -226,7 +225,7 @@ namespace PvPController
             var pos = new Vector2(args.Data.ReadSingle(), args.Data.ReadSingle());
             var vel = Vector2.Zero;
             
-            if (control[5] && PvPController.Config.BannedItemIDs.Contains(args.Player.SelectedItem.netID) && args.Player.TPlayer.hostile)
+            if (control[5] && PvPController.Controller.BannedItemIDs.Count(p => p.itemID == args.Player.SelectedItem.netID) > 0 && args.Player.TPlayer.hostile)
             {
                 if (LastBannedUsage[args.Player.Index] != null)
                 {
@@ -299,6 +298,7 @@ namespace PvPController
                 for (int i = 0; i <= 255; i++)
                 {
                     var projectile = Main.projectile[i];
+                    if (projectile.active)
                     if (projectile.active && projectile.owner == index)
                     {
                         if (Math.Abs(projectile.damage - damage) < 60)
@@ -338,21 +338,21 @@ namespace PvPController
                 {
                     // Get the weapon and whether a modification exists
                     var weapon = PvPController.ProjectileWeapon[closestProjectile.identity];
-                    var weaponModificationExists = PvPController.Config.WeaponModification.Count(p => p.weaponID == weapon.netID) > 0;
-                    var projectileModificationExists = PvPController.Config.ProjectileModification.Count(p => p.projectileID == closestProjectile.type) > 0;
+                    var weaponModificationExists = PvPController.Controller.WeaponDamageModification.Count(p => p.weaponID == weapon.netID) > 0;
+                    var projectileModificationExists = PvPController.Controller.ProjectileDamageModification.Count(p => p.projectileID == closestProjectile.type) > 0;
 
                     if (projectileModificationExists || weaponModificationExists)
                     {
                         // Get then apply modification to damage
                         if (projectileModificationExists)
                         {
-                            var projectileModification = PvPController.Config.ProjectileModification.FirstOrDefault(p => p.projectileID == closestProjectile.type);
+                            var projectileModification = PvPController.Controller.ProjectileDamageModification.FirstOrDefault(p => p.projectileID == closestProjectile.type);
                             damage = Convert.ToInt16(damage * projectileModification.damageRatio);
                         }
 
                         if (weaponModificationExists)
                         {
-                            var weaponModification = PvPController.Config.WeaponModification.FirstOrDefault(p => p.weaponID == weapon.netID);
+                            var weaponModification = PvPController.Controller.WeaponDamageModification.FirstOrDefault(p => p.weaponID == weapon.netID);
                             damage = Convert.ToInt16(damage * weaponModification.damageRatio);
                         }
 
@@ -380,10 +380,10 @@ namespace PvPController
                 {
                     if (args.Player.SelectedItem.melee && Math.Abs(args.Player.SelectedItem.damage - damage) < 60)
                     {
-                        if (PvPController.Config.WeaponModification.Count(p => p.weaponID == args.Player.SelectedItem.netID) > 0)
+                        if (PvPController.Controller.WeaponDamageModification.Count(p => p.weaponID == args.Player.SelectedItem.netID) > 0)
                         {
                             // Get then apply modification to damage
-                            var modification = PvPController.Config.WeaponModification.FirstOrDefault(p => p.weaponID == args.Player.SelectedItem.netID);
+                            var modification = PvPController.Controller.WeaponDamageModification.FirstOrDefault(p => p.weaponID == args.Player.SelectedItem.netID);
                             damage = Convert.ToInt16(damage * modification.damageRatio);
 
                             // Get damage dealt to display as purple combat text
