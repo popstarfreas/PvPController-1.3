@@ -1,6 +1,6 @@
 ﻿namespace PvPController
 {
-    public struct ControllerWeaponBuff
+    public class ControllerWeaponBuff
     {
         public int entryID;
         public int weaponID;

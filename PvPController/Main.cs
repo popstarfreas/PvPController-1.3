@@ -97,11 +97,6 @@ namespace PvPController
             int entries = database.ObtainControllerEntries();
             Console.WriteLine($"Loaded {entries} controllers.");
 
-            foreach (var entry in Controller.ProjectileDamageModification)
-            {
-                Console.WriteLine($"{entry.entryID}: {entry.projectileID} | {entry.damageRatio}");
-            }
-
             OnSecondUpdate = new Timer(1000);
             OnSecondUpdate.Enabled = true;
             OnSecondUpdate.Elapsed += SecondUpdate;

@@ -1,6 +1,6 @@
 ﻿namespace PvPController
 {
-    public struct ControllerProjectileBan
+    public class ControllerProjectileBan
     {
         public int entryID;
         public int projectileID;
