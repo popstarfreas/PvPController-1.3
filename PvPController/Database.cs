@@ -63,8 +63,9 @@ namespace PvPController
          * information. Each property and value is a seperate row, so checks are made as to whether an
          * element in the list exists with the same entry id or not, and appropriate action is taken.
          */ 
-        public void ObtainControllerEntries()
+        public int ObtainControllerEntries()
         {
+            int totalEntries = 0;
             int entryID;
             string controller;
             string property;
@@ -86,6 +87,7 @@ namespace PvPController
                                 itemBan.entryID = entryID;
                                 itemBan.itemID = Convert.ToInt16(value);
                                 PvPController.Controller.BannedItemIDs.Add(itemBan);
+                                totalEntries++;
                             }
                             break;
                         case "ProjectileBan":
@@ -95,6 +97,7 @@ namespace PvPController
                                 projectileBan.entryID = entryID;
                                 projectileBan.projectileID = Convert.ToInt16(value);
                                 PvPController.Controller.BannedProjectileIDs.Add(projectileBan);
+                                totalEntries++;
                             }
                             break;
                         case "ArmorBan":
@@ -104,6 +107,7 @@ namespace PvPController
                                 itemBan.entryID = entryID;
                                 itemBan.itemID = Convert.ToInt16(value);
                                 PvPController.Controller.BannedArmorPieces.Add(itemBan);
+                                totalEntries++;
                             }
                             break;
                         case "AccessoriesBan":
@@ -113,6 +117,7 @@ namespace PvPController
                                 itemBan.entryID = entryID;
                                 itemBan.itemID = Convert.ToInt16(value);
                                 PvPController.Controller.BannedAccessories.Add(itemBan);
+                                totalEntries++;
                             }
                             break;
                         case "ProjectileDamage":
@@ -131,9 +136,10 @@ namespace PvPController
                                 }
 
                                 PvPController.Controller.ProjectileDamageModification.Add(projectileDamage);
+                                totalEntries++;
                             } else
                             {
-                                var entry = PvPController.Controller.ProjectileDamageModification.FirstOrDefault(p => p.entryID == entryID);
+                                var entry = PvPController.Controller.ProjectileDamageModification.First(p => p.entryID == entryID);
                                 switch (property)
                                 {
                                     case "ProjectileID":
@@ -161,10 +167,11 @@ namespace PvPController
                                 }
 
                                 PvPController.Controller.ProjectileSpeedModification.Add(projectileSpeed);
+                                totalEntries++;
                             }
                             else
                             {
-                                var entry = PvPController.Controller.ProjectileSpeedModification.FirstOrDefault(p => p.entryID == entryID);
+                                var entry = PvPController.Controller.ProjectileSpeedModification.First(p => p.entryID == entryID);
                                 switch (property)
                                 {
                                     case "ItemID":
@@ -195,10 +202,11 @@ namespace PvPController
                                 }
 
                                 PvPController.Controller.WeaponBuff.Add(weaponBuff);
+                                totalEntries++;
                             }
                             else
                             {
-                                var entry = PvPController.Controller.WeaponBuff.FirstOrDefault(p => p.entryID == entryID);
+                                var entry = PvPController.Controller.WeaponBuff.First(p => p.entryID == entryID);
                                 switch (property)
                                 {
                                     case "ItemID":
@@ -229,10 +237,11 @@ namespace PvPController
                                 }
 
                                 PvPController.Controller.WeaponDamageModification.Add(weaponDamage);
+                                totalEntries++;
                             }
                             else
                             {
-                                var entry = PvPController.Controller.WeaponDamageModification.FirstOrDefault(p => p.entryID == entryID);
+                                var entry = PvPController.Controller.WeaponDamageModification.First(p => p.entryID == entryID);
                                 switch (property)
                                 {
                                     case "ItemID":
@@ -247,6 +256,8 @@ namespace PvPController
                     }
                 }
             }
+
+            return totalEntries;
         }
 
         private Database(IDbConnection db)

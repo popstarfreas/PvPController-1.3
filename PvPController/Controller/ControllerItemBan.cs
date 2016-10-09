@@ -1,6 +1,6 @@
 ﻿namespace PvPController
 {
-    public struct ControllerItemBan
+    public class ControllerItemBan
     {
         public int entryID;
         public int itemID;
