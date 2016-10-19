@@ -7,6 +7,8 @@ namespace PvPController
     {
         public int DamageDisableSeconds;
         public bool HideDisallowedProjectiles;
+        public string RedisHost;
+        public DatabaseConfig Database;
 
         public void Write(string path)
         {
@@ -27,6 +29,10 @@ namespace PvPController
             var Conf = new Config();
             Conf.DamageDisableSeconds = 12;
             Conf.HideDisallowedProjectiles = true;
+            Conf.Database.Hostname = "localhost";
+            Conf.Database.Port = 27017;
+            Conf.Database.DBName = "pvpcontroller";
+            Conf.RedisHost = "localhost";
             Conf.Write(file);   
         }
     }

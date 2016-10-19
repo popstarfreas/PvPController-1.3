@@ -98,11 +98,11 @@ namespace PvPController
             var type = args.Data.ReadInt16();
             var bits = (BitsByte)args.Data.ReadInt8();
             owner = (byte)args.Player.Index;
-            float[] ai = new float[Projectile.maxAI];
+            float[] ai = new float[Terraria.Projectile.maxAI];
 
             if (args.Player.TPlayer.hostile)
             {
-                if (PvPController.Controller.BannedProjectileIDs.Count(p => p.projectileID == type) > 0)
+                if (PvPController.projectiles.Count(p => p.netID == type && p.banned) > 0)
                 {
                     var proj = Main.projectile[ident];
                     proj.active = false;
@@ -170,31 +170,32 @@ namespace PvPController
                         }
                     }
 
-                    if (PvPController.Controller.WeaponBuff.Count(p => p.weaponID == args.Player.SelectedItem.netID) > 0)
+                    if (PvPController.weapons.Count(p => p.netID == args.Player.SelectedItem.netID && p.buffs.Count() > 0) > 0)
                     {
-                        var proj = new Projectile();
+                        var proj = new Terraria.Projectile();
                         proj.SetDefaults(type);
 
                         if (proj.ranged && dmg > 0)
                         {
-                            var weaponBuffs = PvPController.Controller.WeaponBuff.Where(p => p.weaponID == args.Player.SelectedItem.netID).ToList();
+                            var weapon = PvPController.weapons.FirstOrDefault(p => p.netID == args.Player.SelectedItem.netID);
+                            var weaponBuffs = weapon.buffs;
                             foreach (var weaponBuff in weaponBuffs)
                             {
-                                args.Player.SetBuff(weaponBuff.buffID, Convert.ToInt32((weaponBuff.buffMilliseconds / 1000f) * 60), true);
+                                args.Player.SetBuff(weaponBuff.netID, Convert.ToInt32((weaponBuff.milliseconds / 1000f) * 60), true);
                             }
                         }
                     }
 
-                    if (PvPController.Controller.ProjectileSpeedModification.Count(p => p.projectileID == type) > 0)
+                    if (PvPController.projectiles.Count(p => p.netID == type && p.velocityRatio != 1f) > 0)
                     {
-                        var modification = PvPController.Controller.ProjectileSpeedModification.FirstOrDefault(p => p.projectileID == type);
+                        var modification = PvPController.projectiles.FirstOrDefault(p => p.netID == type);
                         var proj = Main.projectile[ident];
                         proj.SetDefaults(type);
                         proj.damage = dmg;
                         proj.active = true;
                         proj.identity = ident;
                         proj.owner = owner;
-                        proj.velocity = vel * modification.speedRatio;
+                        proj.velocity = vel * modification.velocityRatio;
                         proj.position = pos;
                         NetMessage.SendData((int)PacketTypes.ProjectileNew, -1, -1, "", ident);
                         return true;
@@ -225,7 +226,7 @@ namespace PvPController
             var pos = new Vector2(args.Data.ReadSingle(), args.Data.ReadSingle());
             var vel = Vector2.Zero;
             
-            if (control[5] && PvPController.Controller.BannedItemIDs.Count(p => p.itemID == args.Player.SelectedItem.netID) > 0 && args.Player.TPlayer.hostile)
+            if (control[5] && PvPController.weapons.Count(p => p.netID == args.Player.SelectedItem.netID && p.banned) > 0 && args.Player.TPlayer.hostile)
             {
                 if (LastBannedUsage[args.Player.Index] != null)
                 {
@@ -294,7 +295,7 @@ namespace PvPController
             {
                 // Find out what projectile did the damage
                 int currentIndex = 0;
-                Projectile[] closeDamageProjectiles = new Projectile[255];
+                Terraria.Projectile[] closeDamageProjectiles = new Terraria.Projectile[255];
                 for (int i = 0; i <= 255; i++)
                 {
                     var projectile = Main.projectile[i];
@@ -309,7 +310,7 @@ namespace PvPController
                 }
 
                 float smallestDistance = -1;
-                Projectile closestProjectile = null;
+                Terraria.Projectile closestProjectile = null;
 
                 for (int i = 0; i <= 255; i++)
                 {
@@ -338,21 +339,21 @@ namespace PvPController
                 {
                     // Get the weapon and whether a modification exists
                     var weapon = PvPController.ProjectileWeapon[closestProjectile.identity];
-                    var weaponModificationExists = PvPController.Controller.WeaponDamageModification.Count(p => p.weaponID == weapon.netID) > 0;
-                    var projectileModificationExists = PvPController.Controller.ProjectileDamageModification.Count(p => p.projectileID == closestProjectile.type) > 0;
+                    var weaponModificationExists = PvPController.weapons.Count(p => p.netID == weapon.netID && p.damageRatio != 1f) > 0;
+                    var projectileModificationExists = PvPController.projectiles.Count(p => p.netID == closestProjectile.type && p.damageRatio != 1f) > 0;
 
                     if (projectileModificationExists || weaponModificationExists)
                     {
                         // Get then apply modification to damage
                         if (projectileModificationExists)
                         {
-                            var projectileModification = PvPController.Controller.ProjectileDamageModification.FirstOrDefault(p => p.projectileID == closestProjectile.type);
+                            var projectileModification = PvPController.projectiles.FirstOrDefault(p => p.netID == closestProjectile.type);
                             damage = Convert.ToInt16(damage * projectileModification.damageRatio);
                         }
 
                         if (weaponModificationExists)
                         {
-                            var weaponModification = PvPController.Controller.WeaponDamageModification.FirstOrDefault(p => p.weaponID == weapon.netID);
+                            var weaponModification = PvPController.weapons.FirstOrDefault(p => p.netID == weapon.netID);
                             damage = Convert.ToInt16(damage * weaponModification.damageRatio);
                         }
 
@@ -380,10 +381,10 @@ namespace PvPController
                 {
                     if (args.Player.SelectedItem.melee && Math.Abs(args.Player.SelectedItem.damage - damage) < 60)
                     {
-                        if (PvPController.Controller.WeaponDamageModification.Count(p => p.weaponID == args.Player.SelectedItem.netID) > 0)
+                        if (PvPController.weapons.Count(p => p.netID == args.Player.SelectedItem.netID && p.damageRatio != 1f) > 0)
                         {
                             // Get then apply modification to damage
-                            var modification = PvPController.Controller.WeaponDamageModification.FirstOrDefault(p => p.weaponID == args.Player.SelectedItem.netID);
+                            var modification = PvPController.weapons.FirstOrDefault(p => p.netID == args.Player.SelectedItem.netID);
                             damage = Convert.ToInt16(damage * modification.damageRatio);
 
                             // Get damage dealt to display as purple combat text

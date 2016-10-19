@@ -5,7 +5,11 @@ using TerrariaApi.Server;
 using TShockAPI;
 using System.Timers;
 using System.Diagnostics;
+using System.Collections.Generic;
 using System.Linq;
+using StackExchange.Redis;
+using PvPController.StorageTypes;
+using Newtonsoft.Json.Linq;
 
 namespace PvPController
 {
@@ -15,7 +19,7 @@ namespace PvPController
         public Timer OnSecondUpdate;
         public static Config Config = new Config();
         public static Database database;
-        public static Controller Controller = new Controller();
+        public static ConnectionMultiplexer redis;
         public static string[] ControlTypes = {
             "WeaponBan",
             "ProjectileBan",
@@ -35,6 +39,10 @@ namespace PvPController
             "Milliseconds"
         };
 
+        public static List<Weapon> weapons = new List<Weapon>();
+        public static List<StorageTypes.Projectile> projectiles = new List<StorageTypes.Projectile>();
+        public static List<EquipItem> equipItems = new List<EquipItem>();
+
         // Tracks what weapon created what projectile for the specified projectile index
         public static Item[] ProjectileWeapon = new Item[400];
 
@@ -53,7 +61,7 @@ namespace PvPController
         {
             get
             {
-                return "Takes the punch out of weapons and blesses others.";
+                return "The mightiest power in PvP Control ever created.";
             }
         }
 
@@ -85,21 +93,122 @@ namespace PvPController
         public override void Initialize()
         {
             ServerApi.Hooks.NetGetData.Register(this, GetData);
-            string path = Path.Combine(TShock.SavePath, "PvPController.json");
             Commands.ChatCommands.Add(new Command("pvpcontroller.reload", Reload, "pvpcreload"));
+
+            /* Config Setup */
+            string path = Path.Combine(TShock.SavePath, "PvPController.json");
             if (!File.Exists(path))
                 Config.WriteTemplates(path);
             Config = Config.Read(path);
+
+            /* Redis Setup */
+            redis = ConnectionMultiplexer.Connect(Config.RedisHost);
+            ISubscriber sub = redis.GetSubscriber();
+            sub.SubscribeAsync("pvpcontroller-updates", (channel, message) =>
+            {
+                parseUpdate(message);
+            });
+
             GetDataHandlers.InitGetDataHandler();
 
-            database = Database.InitDb("tshock");
-            database.CheckTablesExists();
-            int entries = database.ObtainControllerEntries();
-            Console.WriteLine($"Loaded {entries} controllers.");
+            /* Database setup */
+            database = new Database();
+            weapons = database.GetWeapons();
+            projectiles = database.GetProjectiles();
+            database.InsertBuffs(weapons);
 
+            /* Update Timer running every second */
             OnSecondUpdate = new Timer(1000);
             OnSecondUpdate.Enabled = true;
             OnSecondUpdate.Elapsed += SecondUpdate;
+        }
+
+        /* Parses updates from the redis channel. These changes will be made to the existing
+         * local lists of Weapons and Projectiles, the internal state of the DB has already been
+         * updated by the time this comes through (or is in the process of).
+         * 
+         * @param message
+         *      The raw message from the subscribed channel.
+         */
+        void parseUpdate(string message)
+        {
+            dynamic update = JObject.Parse(message);
+            string objectType = update.objectType;
+            float value = update.value;
+
+            switch(objectType)
+            {
+                case "weapon":
+                    handleWeaponUpdate(update);
+                    break;
+                case "projectile":
+                    handleProjectileUpdate(update);
+                    break;
+            }
+        }
+
+        /* Handles an update for an existing weapon
+         * 
+         * @param update
+         *      The update object contained the netID, changeType and value
+         */
+        void handleWeaponUpdate(dynamic update)
+        {
+            string changeType = update.changeType;
+            int netID = update.netID;
+            var weapon = weapons.FirstOrDefault(p => p.netID == netID);
+
+            /* The weapon was not found in the list, therefore it cannot be used
+             * since we do not have the other values of the object.*/
+            if (weapon == null)
+            {
+                return;
+            }
+
+            switch (changeType)
+            {
+                case "damageRatio":
+                    weapon.damageRatio = Convert.ToSingle(update.value);
+                    break;
+                case "velocityRatio":
+                    weapon.velocityRatio = Convert.ToSingle(update.value);
+                    break;
+                case "banned":
+                    weapon.banned = Convert.ToBoolean(update.value);
+                    break;
+            }
+        }
+
+        /* Handles an update for an existing weapon
+         * 
+         * @param update
+         *      The update object contained the netID, changeType and value
+         */
+        void handleProjectileUpdate(dynamic update)
+        {
+            string changeType = update.changeType;
+            int netID = update.netID;
+            var projectile = projectiles.FirstOrDefault(p => p.netID == netID);
+
+            /* The weapon was not found in the list, therefore it cannot be used
+             * since we do not have the other values of the object.*/
+            if (projectile == null)
+            {
+                return;
+            }
+
+            switch (changeType)
+            {
+                case "damageRatio":
+                    projectile.damageRatio = Convert.ToSingle(update.value);
+                    break;
+                case "velocityRatio":
+                    projectile.velocityRatio = Convert.ToSingle(update.value);
+                    break;
+                case "banned":
+                    projectile.banned = Convert.ToBoolean(update.value);
+                    break;
+            }
         }
 
         /* Checks if any of the players are using a banned accessory or armor item
@@ -131,8 +240,8 @@ namespace PvPController
                                 // Armor and Accessories (active) are 0-9
                                 for (int slot = 0; slot <= 9; slot++)
                                 {
-                                    bool bannedArmor = Controller.BannedArmorPieces.Count(p => p.itemID == player.TPlayer.armor[slot].netID) > 0;
-                                    bool bannedAccessory = Controller.BannedAccessories.Count(p => p.itemID == player.TPlayer.armor[slot].netID) > 0;
+                                    bool bannedArmor = equipItems.Count(p => p.netID == player.TPlayer.armor[slot].netID && p.banned) > 0;
+                                    bool bannedAccessory = equipItems.Count(p => p.netID == player.TPlayer.armor[slot].netID && p.banned) > 0;
 
                                     if (bannedArmor || bannedAccessory)
                                     {

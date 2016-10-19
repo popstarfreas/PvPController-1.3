@@ -61,3 +61,10 @@ postbuild.bat
 ##################
 *.dotCover
 _ReSharper.*
+
+# Other #
+#########
+packages
+.vs
+PvPController\PvPController\bin
+PvPController\PvPController\obj
