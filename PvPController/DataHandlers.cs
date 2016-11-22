@@ -6,6 +6,7 @@ using System.Linq;
 using Terraria;
 using TShockAPI;
 using System.Diagnostics;
+using Terraria.DataStructures;
 
 namespace PvPController
 {
@@ -359,7 +360,7 @@ namespace PvPController
 
                         // Get damage dealt to display as purple combat text
                         int life = Main.player[playerId].statLife;
-                        Main.player[playerId].Hurt(damage, 0, true);
+                        Main.player[playerId].Hurt(new PlayerDeathReason(), damage, 0, true);
                         int realDamage = life - Main.player[playerId].statLife;
 
                         /* Send out the HP value so that the client who now has the wrong value
@@ -389,7 +390,7 @@ namespace PvPController
 
                             // Get damage dealt to display as purple combat text
                             int life = Main.player[playerId].statLife;
-                            Main.player[playerId].Hurt(damage, 0, true);
+                            Main.player[playerId].Hurt(new PlayerDeathReason(), damage, 0, true);
                             int realDamage = life - Main.player[playerId].statLife;
 
                             /* Send out the HP value so that the client who now has the wrong value
