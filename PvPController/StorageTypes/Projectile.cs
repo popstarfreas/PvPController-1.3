@@ -9,11 +9,11 @@ namespace PvPController.StorageTypes
     public class Projectile
     {
         public int netID;
-        public int damageRatio;
+        public float damageRatio;
         public float velocityRatio;
         public bool banned;
 
-        public Projectile(int netID, int damageRatio, float velocityRatio, bool banned)
+        public Projectile(int netID, float damageRatio, float velocityRatio, bool banned)
         {
             this.netID = netID;
             this.damageRatio = damageRatio;

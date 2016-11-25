@@ -106,6 +106,7 @@ namespace PvPController
             ISubscriber sub = redis.GetSubscriber();
             sub.SubscribeAsync("pvpcontroller-updates", (channel, message) =>
             {
+                Console.WriteLine(message);
                 parseUpdate(message);
             });
 
@@ -115,7 +116,7 @@ namespace PvPController
             database = new Database();
             weapons = database.GetWeapons();
             projectiles = database.GetProjectiles();
-            database.InsertBuffs(weapons);
+            database.addWeaponBuffs(weapons);
 
             /* Update Timer running every second */
             OnSecondUpdate = new Timer(1000);
@@ -134,6 +135,7 @@ namespace PvPController
         {
             dynamic update = JObject.Parse(message);
             string objectType = update.objectType;
+            Console.WriteLine(objectType);
             float value = update.value;
 
             switch(objectType)
@@ -159,9 +161,10 @@ namespace PvPController
             var weapon = weapons.FirstOrDefault(p => p.netID == netID);
 
             /* The weapon was not found in the list, therefore it cannot be used
-             * since we do not have the other values of the object.*/
+                * since we do not have the other values of the object.*/
             if (weapon == null)
             {
+                Console.WriteLine($"{netID} unusable");
                 return;
             }
 
@@ -200,9 +203,11 @@ namespace PvPController
             switch (changeType)
             {
                 case "damageRatio":
+                    Console.WriteLine($"Updated projectile {projectile.netID} damage from {projectile.damageRatio} to {Convert.ToSingle(update.value)}");
                     projectile.damageRatio = Convert.ToSingle(update.value);
                     break;
                 case "velocityRatio":
+                    Console.WriteLine($"Updated projectile {projectile.netID} velocity from {projectile.velocityRatio} to {Convert.ToSingle(update.value)}");
                     projectile.velocityRatio = Convert.ToSingle(update.value);
                     break;
                 case "banned":

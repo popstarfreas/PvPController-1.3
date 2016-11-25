@@ -35,8 +35,8 @@ namespace PvPController
             foreach (var item in cursor.ToEnumerable())
             {
                 var weapon = new Weapon(item["NetID"].AsInt32, 
-                                        Convert.ToInt32(Convert.ToSingle(item["CurrentDamage"]) / Convert.ToSingle(item["BaseDamage"])),
-                                        Convert.ToSingle(item["VelocityRatio"]),
+                                        Convert.ToSingle(item["CurrentDamage"]) / Convert.ToSingle(item["BaseDamage"]),
+                                        Convert.ToSingle(item["CurrentVelocity"]) / Convert.ToSingle(item["BaseVelocity"]),
                                         Convert.ToBoolean(item["Banned"]));
                 weaponList.Add(weapon);
             }
@@ -51,7 +51,7 @@ namespace PvPController
             foreach (var item in cursor.ToEnumerable())
             {
                 var projectile = new Projectile(item["NetID"].AsInt32,
-                                        Convert.ToInt32(Convert.ToSingle(item["CurrentDamage"]) / Convert.ToSingle(item["BaseDamage"])),
+                                        Convert.ToSingle(item["DamageRatio"]),
                                         Convert.ToSingle(item["VelocityRatio"]),
                                         Convert.ToBoolean(item["Banned"]));
                 projectileList.Add(projectile);
@@ -60,7 +60,8 @@ namespace PvPController
             return projectileList;
         }
 
-        public void InsertBuffs(List<Weapon> weapons)
+        // Gets the weapon buffs and adds them to the appropriate weapons in the weapons list
+        public void addWeaponBuffs(List<Weapon> weapons)
         {
             var cursor = weaponBuffCollection.Find(new BsonDocument()).ToCursor();
             foreach (var item in cursor.ToEnumerable())

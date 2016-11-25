@@ -5,12 +5,12 @@ namespace PvPController.StorageTypes
     public class Weapon
     {
         public int netID;
-        public int damageRatio;
+        public float damageRatio;
         public float velocityRatio;
         public bool banned;
         public List<Buff> buffs = new List<Buff>();
 
-        public Weapon(int netID, int damageRatio, float velocityRatio, bool banned)
+        public Weapon(int netID, float damageRatio, float velocityRatio, bool banned)
         {
             this.netID = netID;
             this.damageRatio = damageRatio;
