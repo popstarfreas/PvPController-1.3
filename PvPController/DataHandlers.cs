@@ -35,7 +35,7 @@ namespace PvPController
             _getDataHandlerDelegates = new Dictionary<PacketTypes, GetDataHandlerDelegate>
             {
                 {PacketTypes.ProjectileNew, HandleProjectile},
-                {PacketTypes.PlayerDamage, HandleDamage},
+                {PacketTypes.PlayerHurtV2, HandleDamage},
                 {PacketTypes.PlayerUpdate, HandlePlayerUpdate},
             };
         }
@@ -266,14 +266,42 @@ namespace PvPController
          */
         private static bool HandleDamage(GetDataHandlerArgs args)
         {
-			if (args.Player == null) return false;
-			var index = args.Player.Index;
-			var playerId = (byte) args.Data.ReadByte();
-			var dir = args.Data.ReadByte();
-			var damage = args.Data.ReadInt16();
-            var text = args.Data.ReadString();
-			var crit = args.Data.ReadBoolean();
-			args.Data.ReadByte();
+            if (args.Player == null) return false;
+            var index = args.Player.Index;
+            var playerId = (byte)args.Data.ReadByte();
+            var damageSourceFlags = (BitsByte)args.Data.ReadByte();
+            if (damageSourceFlags[0])
+            {
+                var sourcePlayerIndex = args.Data.ReadInt16();
+            }
+            if (damageSourceFlags[1])
+            {
+                var sourceNPCIndex = args.Data.ReadInt16();
+            }
+            if (damageSourceFlags[2])
+            {
+                var sourceProjectileIndex = args.Data.ReadInt16();
+            }
+            if (damageSourceFlags[3])
+            {
+                var sourceOtherIndex = args.Data.ReadByte();
+            }
+            if (damageSourceFlags[4])
+            {
+                var sourceProjectileType = args.Data.ReadInt16();
+            }
+            if (damageSourceFlags[5])
+            {
+                var sourceItemType = args.Data.ReadInt16();
+            }
+            if (damageSourceFlags[6])
+            {
+                var sourceItemPrefix = args.Data.ReadByte();
+            }
+            var damage = args.Data.ReadInt16();
+            var dir = args.Data.ReadByte();
+            var flags = args.Data.ReadByte();
+            args.Data.ReadByte();
 
             if (TShock.Players[playerId] == null)
                 return false;
@@ -434,12 +462,13 @@ namespace PvPController
             flags[2] = false; // Cooldown -1
             flags[3] = false; // Cooldown +1
             byte[] playerDamage = new PacketFactory()
-                .SetType((short)PacketTypes.PlayerDamage)
+                .SetType((short)PacketTypes.PlayerHurtV2)
                 .PackByte((byte)player.Index)
-                .PackByte((byte)hitDirection)
+                .PackByte(0)
                 .PackInt16((short)damage)
-                .PackString("")
+                .PackByte((byte)hitDirection)
                 .PackByte(flags)
+                .PackByte(3)
                 .GetByteData();
             player.SendRawData(playerDamage);
         }
