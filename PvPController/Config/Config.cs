@@ -5,6 +5,7 @@ namespace PvPController
 {
     public class Config
     {
+        public int[] BannedArmorPieces;
         public int DamageDisableSeconds;
         public bool HideDisallowedProjectiles;
         public string RedisHost;
@@ -27,6 +28,7 @@ namespace PvPController
         public static void WriteTemplates(string file)
         {
             var Conf = new Config();
+            Conf.BannedArmorPieces = new int[] { };
             Conf.DamageDisableSeconds = 12;
             Conf.HideDisallowedProjectiles = true;
             Conf.Database.Hostname = "localhost";

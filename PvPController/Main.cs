@@ -100,6 +100,10 @@ namespace PvPController
             if (!File.Exists(path))
                 Config.WriteTemplates(path);
             Config = Config.Read(path);
+            foreach (var netID in Config.BannedArmorPieces)
+            {
+                equipItems.Add(new EquipItem(netID, true));
+            }
 
             /* Redis Setup */
             redis = ConnectionMultiplexer.Connect(Config.RedisHost);
@@ -192,7 +196,7 @@ namespace PvPController
             string changeType = update.changeType;
             int netID = update.netID;
             var projectile = projectiles.FirstOrDefault(p => p.netID == netID);
-
+            
             /* The weapon was not found in the list, therefore it cannot be used
              * since we do not have the other values of the object.*/
             if (projectile == null)
@@ -203,11 +207,9 @@ namespace PvPController
             switch (changeType)
             {
                 case "damageRatio":
-                    Console.WriteLine($"Updated projectile {projectile.netID} damage from {projectile.damageRatio} to {Convert.ToSingle(update.value)}");
                     projectile.damageRatio = Convert.ToSingle(update.value);
                     break;
                 case "velocityRatio":
-                    Console.WriteLine($"Updated projectile {projectile.netID} velocity from {projectile.velocityRatio} to {Convert.ToSingle(update.value)}");
                     projectile.velocityRatio = Convert.ToSingle(update.value);
                     break;
                 case "banned":
@@ -259,21 +261,6 @@ namespace PvPController
                                         break;
                                     }
                                 }
-                            }
-
-                            if (violation)
-                            {
-                                if (GetDataHandlers.LastBannedUsage[player.Index] != null)
-                                {
-                                    GetDataHandlers.LastBannedUsage[player.Index].Stop();
-                                    GetDataHandlers.LastBannedUsage[player.Index].Reset();
-                                }
-                                else
-                                {
-                                    GetDataHandlers.LastBannedUsage[player.Index] = new Stopwatch();
-                                }
-
-                                GetDataHandlers.LastBannedUsage[player.Index].Start();
                             }
                         }
                     }
@@ -331,6 +318,10 @@ namespace PvPController
             if (!File.Exists(path))
                 Config.WriteTemplates(path);
             Config = Config.Read(path);
+            foreach (var netID in Config.BannedArmorPieces)
+            {
+                equipItems.Add(new EquipItem(netID, true));
+            }
             e.Player.SendSuccessMessage("Reloaded PvPController config.");
         }
 

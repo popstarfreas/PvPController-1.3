@@ -36,6 +36,7 @@ namespace PvPController
             {
                 {PacketTypes.ProjectileNew, HandleProjectile},
                 {PacketTypes.PlayerHurtV2, HandleDamage},
+                {PacketTypes.PlayerDamage, HandleOldDamage },
                 {PacketTypes.PlayerUpdate, HandlePlayerUpdate},
             };
         }
@@ -72,8 +73,7 @@ namespace PvPController
             }
             return false;
         }
-
-        public static Stopwatch[] LastBannedUsage = new Stopwatch[256];
+        
         public static DateTime[] LastMessage = new DateTime[256];
 
         /* Handles the case when the player shoots a banned projectile and
@@ -116,16 +116,6 @@ namespace PvPController
                     proj.active = false;
                     proj.type = 0;
                     TSPlayer.All.SendData(PacketTypes.ProjectileNew, "", ident);
-                    if (LastBannedUsage[args.Player.Index] != null)
-                    {
-                        LastBannedUsage[args.Player.Index].Stop();
-                        LastBannedUsage[args.Player.Index].Reset();
-                    }
-                    else
-                    {
-                        LastBannedUsage[args.Player.Index] = new Stopwatch();
-                    }
-                    LastBannedUsage[args.Player.Index].Start();
 
                     if ((DateTime.Now - LastMessage[args.Player.Index]).TotalSeconds > 2)
                     {
@@ -138,39 +128,6 @@ namespace PvPController
                 }
                 else
                 {
-                    // Check that they either own the projectile, or it is inactive (and therefore this is a new one)
-                    if (Main.projectile[ident].active == false || Main.projectile[ident].owner == owner)
-                    {
-                        // Used if we need an instance of Item that we can't link to an inventory slot
-                        Item fabricatedItem;
-                        switch (type)
-                        {
-                            case 640: // Luminite Arrow (second phase)
-                                PvPController.ProjectileWeapon[ident] = PvPController.LastActiveBow[args.Player.Index];
-                                break;
-
-                            case 245: // Crimson Rain
-                                fabricatedItem = (new Item());
-                                fabricatedItem.SetDefaults(1256);
-                                PvPController.ProjectileWeapon[ident] = fabricatedItem;
-                                break;
-
-                            case 239: // Nimbus Rain
-                                fabricatedItem = (new Item());
-                                fabricatedItem.SetDefaults(1244);
-                                PvPController.ProjectileWeapon[ident] = fabricatedItem;
-                                break;
-
-                            default:
-                                if (Utils.IsBow(args.Player.SelectedItem))
-                                {
-                                    PvPController.LastActiveBow[args.Player.Index] = args.Player.SelectedItem;
-                                }
-                                PvPController.ProjectileWeapon[ident] = args.Player.SelectedItem;
-                                break;
-                        }
-                    }
-
                     if (PvPController.weapons.Count(p => p.netID == args.Player.SelectedItem.netID && p.buffs.Count() > 0) > 0)
                     {
                         var proj = new Terraria.Projectile();
@@ -187,16 +144,30 @@ namespace PvPController
                         }
                     }
 
-                    if (PvPController.projectiles.Count(p => p.netID == type && p.velocityRatio != 1f) > 0)
+                    var modification = PvPController.projectiles.FirstOrDefault(p => p.netID == type);
+                    StorageTypes.Weapon weaponModification = null;
+                    if (dmg > 0) {
+                       weaponModification = PvPController.weapons.FirstOrDefault(p => p.netID == args.Player.SelectedItem.netID);
+                    }
+                    if ((modification != null && modification.velocityRatio != 1f) || (weaponModification != null && weaponModification.velocityRatio != 1f))
                     {
-                        var modification = PvPController.projectiles.FirstOrDefault(p => p.netID == type);
                         var proj = Main.projectile[ident];
+                        var velocity = vel;
+                        if (modification != null)
+                        {
+                            velocity *= modification.velocityRatio;
+                        }
+
+                        if (weaponModification != null)
+                        {
+                            velocity *= weaponModification.velocityRatio;
+                        }
                         proj.SetDefaults(type);
                         proj.damage = dmg;
                         proj.active = true;
                         proj.identity = ident;
                         proj.owner = owner;
-                        proj.velocity = vel * modification.velocityRatio;
+                        proj.velocity = velocity;
                         proj.position = pos;
                         NetMessage.SendData((int)PacketTypes.ProjectileNew, -1, -1, "", ident);
                         return true;
@@ -208,8 +179,7 @@ namespace PvPController
         }
 
         /* Handles the case when the player uses a banned item and
-         * starts a stopwatch from the moment they use it, or reset
-         * the existing stopwatch.
+         * warns the player that the weapon does no damage.
          * 
          * @param args
          *          The GetDataHandlerArgs containing the player that sent the packet and the data of the packet
@@ -229,18 +199,6 @@ namespace PvPController
             
             if (control[5] && PvPController.weapons.Count(p => p.netID == args.Player.SelectedItem.netID && p.banned) > 0 && args.Player.TPlayer.hostile)
             {
-                if (LastBannedUsage[args.Player.Index] != null)
-                {
-                    LastBannedUsage[args.Player.Index].Stop();
-                    LastBannedUsage[args.Player.Index].Reset();
-                }
-                else
-                {
-                    LastBannedUsage[args.Player.Index] = new Stopwatch();
-                }
-
-                LastBannedUsage[args.Player.Index].Start();
-
                 if ((DateTime.Now - LastMessage[args.Player.Index]).TotalSeconds > 2)
                 {
                     args.Player.SendMessage("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++", Color.Red);
@@ -270,6 +228,10 @@ namespace PvPController
             var index = args.Player.Index;
             var playerId = (byte)args.Data.ReadByte();
             var damageSourceFlags = (BitsByte)args.Data.ReadByte();
+
+            var sourceItemType = -1;
+            var sourceProjectileType = -1;
+            var sourceItemPrefix = -1;
             if (damageSourceFlags[0])
             {
                 var sourcePlayerIndex = args.Data.ReadInt16();
@@ -288,156 +250,101 @@ namespace PvPController
             }
             if (damageSourceFlags[4])
             {
-                var sourceProjectileType = args.Data.ReadInt16();
+                sourceProjectileType = args.Data.ReadInt16();
             }
             if (damageSourceFlags[5])
             {
-                var sourceItemType = args.Data.ReadInt16();
+                sourceItemType = args.Data.ReadInt16();
             }
             if (damageSourceFlags[6])
             {
-                var sourceItemPrefix = args.Data.ReadByte();
+                sourceItemPrefix = args.Data.ReadByte();
             }
+            
             var damage = args.Data.ReadInt16();
             var dir = args.Data.ReadByte();
             var flags = args.Data.ReadByte();
             args.Data.ReadByte();
 
-            if (TShock.Players[playerId] == null)
+            if (TShock.Players[playerId] == null || sourceItemType == -1)
                 return false;
 
-            // Check whether the stopwatch is still valid, and if so send back the real HP to the client that damaged
-            // the player.
-            if (LastBannedUsage[args.Player.Index] != null && LastBannedUsage[args.Player.Index].IsRunning)
+            if (sourceProjectileType == -1)
             {
-                if (LastBannedUsage[args.Player.Index].Elapsed.TotalSeconds < PvPController.Config.DamageDisableSeconds)
-                {
-                    args.Player.SendData(PacketTypes.PlayerHp, "", playerId);
-                    return true;
-                }
-                else
-                {
-                    LastBannedUsage[args.Player.Index].Stop();
-                }
+                Item weapon = new Item();
+                weapon.SetDefaults(sourceItemType);
+                weapon.prefix = (byte)sourceItemPrefix;
+                weapon.owner = args.Player.Index;
+            }
+            float safeDamage = Main.player[args.Player.Index].GetWeaponDamage(weapon);
+            Color msgColor;
+            int realDamage;
+
+            Console.WriteLine($"Item: " + sourceItemType);
+            Console.WriteLine($"Item name: " + weapon.name);
+            Console.WriteLine($"Projectile: " + sourceProjectileType);
+            var proj = new Projectile();
+            proj.SetDefaults(sourceProjectileType);
+            Console.WriteLine($"Projectile Name: " + proj.name);
+
+            // Check whether the source of damage is banned
+            if (PvPController.weapons.Count(p => p.netID == sourceItemType && p.banned) > 0 || PvPController.projectiles.Count(p => p.netID == sourceProjectileType && p.banned) > 0)
+            {
+                args.Player.SendData(PacketTypes.PlayerHp, "", playerId);
+                return true;
             }
             else
             {
-                // Find out what projectile did the damage
-                int currentIndex = 0;
-                Terraria.Projectile[] closeDamageProjectiles = new Terraria.Projectile[255];
-                for (int i = 0; i <= 255; i++)
+                // Get the weapon and whether a modification exists
+                var weaponModificationExists = PvPController.weapons.Count(p => p.netID == sourceItemType && p.damageRatio != 1f) > 0;
+                var projectileModificationExists = PvPController.projectiles.Count(p => p.netID == sourceProjectileType && p.damageRatio != 1f) > 0;
+
+                if (projectileModificationExists || weaponModificationExists)
                 {
-                    var projectile = Main.projectile[i];
-                    if (projectile.active)
-                    if (projectile.active && projectile.owner == index)
+                    // Get then apply modification to damage
+                    if (projectileModificationExists)
                     {
-                        if (Math.Abs(projectile.damage - damage) < 60)
-                        {
-                            closeDamageProjectiles[currentIndex++] = projectile;
-                        }
-                    }
-                }
-
-                float smallestDistance = -1;
-                Terraria.Projectile closestProjectile = null;
-
-                for (int i = 0; i <= 255; i++)
-                {
-                    var projectile = closeDamageProjectiles[i];
-
-                    // If there's no projectile object then it means we've reached the end of the array
-                    // of valid items
-                    if (projectile == null)
-                    {
-                        break;
+                        var projectileModification = PvPController.projectiles.FirstOrDefault(p => p.netID == sourceProjectileType);
+                        safeDamage = Convert.ToInt16(safeDamage * projectileModification.damageRatio);
                     }
 
-                    if (projectile.active && projectile.owner == index)
+                    if (weaponModificationExists)
                     {
-                        float distance = Vector2.Distance(projectile.position, Main.player[playerId].position);
-                        if (smallestDistance == -1 || distance < smallestDistance)
-                        {
-                            smallestDistance = distance;
-                            closestProjectile = projectile;
-                        }
+                        var weaponModification = PvPController.weapons.FirstOrDefault(p => p.netID == sourceItemType);
+                        safeDamage = Convert.ToInt16(safeDamage * weaponModification.damageRatio);
                     }
-                }
+                    
+                    realDamage = (int)Main.CalculatePlayerDamage((int)safeDamage, Main.player[playerId].statDefense);
+                    realDamage = (int)Math.Round(realDamage * (1 - Main.player[playerId].endurance));
+                    Main.player[playerId].Hurt(new PlayerDeathReason(), (int)safeDamage, 1, true, false, false, 3);
 
-                // Given a valid projectile, apply modification if it exists
-                if (closestProjectile != null)
-                {
-                    // Get the weapon and whether a modification exists
-                    var weapon = PvPController.ProjectileWeapon[closestProjectile.identity];
-                    var weaponModificationExists = PvPController.weapons.Count(p => p.netID == weapon.netID && p.damageRatio != 1f) > 0;
-                    var projectileModificationExists = PvPController.projectiles.Count(p => p.netID == closestProjectile.type && p.damageRatio != 1f) > 0;
-
-                    if (projectileModificationExists || weaponModificationExists)
-                    {
-                        // Get then apply modification to damage
-                        if (projectileModificationExists)
-                        {
-                            var projectileModification = PvPController.projectiles.FirstOrDefault(p => p.netID == closestProjectile.type);
-                            damage = Convert.ToInt16(damage * projectileModification.damageRatio);
-                        }
-
-                        if (weaponModificationExists)
-                        {
-                            var weaponModification = PvPController.weapons.FirstOrDefault(p => p.netID == weapon.netID);
-                            damage = Convert.ToInt16(damage * weaponModification.damageRatio);
-                        }
-
-                        // Get damage dealt to display as purple combat text
-                        int life = Main.player[playerId].statLife;
-                        Main.player[playerId].Hurt(new PlayerDeathReason(), damage, 0, true);
-                        int realDamage = life - Main.player[playerId].statLife;
-
-                        /* Send out the HP value so that the client who now has the wrong value
-                         * (due to health being update before the packet is sent) can use the right one */
-                        args.Player.SendData(PacketTypes.PlayerHp, "", playerId);
+                    /* Send out the HP value so that the client who now has the wrong value
+                        * (due to health being update before the packet is sent) can use the right one */
+                    args.Player.SendData(PacketTypes.PlayerHp, "", playerId);
 
 
-                        // Send the combat text
-                        var msgColor = new Color(162, 0, 255);
-                        NetMessage.SendData((int)PacketTypes.CreateCombatText, index, -1, $"{realDamage}", (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
+                    // Send the combat text
+                    msgColor = new Color(162, 0, 255);
+                    NetMessage.SendData((int)PacketTypes.CreateCombatText, index, -1, $"{realDamage}", (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
 
-                        // Send the damage using the special method to avoid invincibility frames issue
-                        SendPlayerDamage(TShock.Players[playerId], dir, damage);
-                        return true;
-                    }
-                }
-                // Otherwise check the weapon to see if it is melee, check damage and modify if necessary
-                else
-                {
-                    if (args.Player.SelectedItem.melee && Math.Abs(args.Player.SelectedItem.damage - damage) < 60)
-                    {
-                        if (PvPController.weapons.Count(p => p.netID == args.Player.SelectedItem.netID && p.damageRatio != 1f) > 0)
-                        {
-                            // Get then apply modification to damage
-                            var modification = PvPController.weapons.FirstOrDefault(p => p.netID == args.Player.SelectedItem.netID);
-                            damage = Convert.ToInt16(damage * modification.damageRatio);
-
-                            // Get damage dealt to display as purple combat text
-                            int life = Main.player[playerId].statLife;
-                            Main.player[playerId].Hurt(new PlayerDeathReason(), damage, 0, true);
-                            int realDamage = life - Main.player[playerId].statLife;
-
-                            /* Send out the HP value so that the client who now has the wrong value
-                             * (due to health being update before the packet is sent) can use the right one */
-                            args.Player.SendData(PacketTypes.PlayerHp, "", playerId);
-
-
-                            // Send the combat text
-                            var msgColor = new Color(162, 0, 255);
-                            NetMessage.SendData((int)PacketTypes.CreateCombatText, index, -1, $"{realDamage}", (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
-
-                            // Send the damage using the special method to avoid invincibility frames issue
-                            SendPlayerDamage(TShock.Players[playerId], dir, damage);
-                            return true;
-                        }
-                    }
+                    // Send the damage using the special method to avoid invincibility frames issue
+                    SendPlayerDamage(TShock.Players[playerId], dir, (int)safeDamage);
+                    return true;
                 }
             }
-            return false;
+
+            // Send the damage number to show the player the real damage
+            msgColor = new Color(162, 0, 255);
+            realDamage = (int)Main.CalculatePlayerDamage((int)safeDamage, Main.player[playerId].statDefense);
+            realDamage = (int)Math.Round(realDamage * (1 - Main.player[playerId].endurance));
+            NetMessage.SendData((int)PacketTypes.CreateCombatText, index, -1, $"{realDamage}", (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
+            SendPlayerDamage(TShock.Players[playerId], dir, (int)safeDamage);
+            return true;
+        }
+        
+        private static bool HandleOldDamage(GetDataHandlerArgs args)
+        {
+            return true;
         }
 
         /* Sends a raw packet built from base values to both fix the invincibility frames
@@ -470,7 +377,12 @@ namespace PvPController
                 .PackByte(flags)
                 .PackByte(3)
                 .GetByteData();
-            player.SendRawData(playerDamage);
+
+            foreach (var plr in TShock.Players)
+            {
+                if (plr != null)
+                    plr.SendRawData(playerDamage);
+            }
         }
     }
 }
