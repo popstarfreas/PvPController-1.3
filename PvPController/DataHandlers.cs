@@ -128,6 +128,39 @@ namespace PvPController
                 }
                 else
                 {
+                    // Check that they either own the projectile, or it is inactive (and therefore this is a new one)
+                    if (Main.projectile[ident].active == false || Main.projectile[ident].owner == owner)
+                    {
+                        // Used if we need an instance of Item that we can't link to an inventory slot
+                        Item fabricatedItem;
+                        switch (type)
+                        {
+                            case 640: // Luminite Arrow (second phase)
+                                PvPController.ProjectileWeapon[args.Player.Index, type] = PvPController.LastActiveBow[args.Player.Index];
+                                break;
+
+                            case 245: // Crimson Rain
+                                fabricatedItem = (new Item());
+                                fabricatedItem.SetDefaults(1256);
+                                PvPController.ProjectileWeapon[args.Player.Index, type] = fabricatedItem;
+                                break;
+
+                            case 239: // Nimbus Rain
+                                fabricatedItem = (new Item());
+                                fabricatedItem.SetDefaults(1244);
+                                PvPController.ProjectileWeapon[args.Player.Index, type] = fabricatedItem;
+                                break;
+
+                            default:
+                                if (Utils.IsBow(args.Player.SelectedItem))
+                                {
+                                    PvPController.LastActiveBow[args.Player.Index] = args.Player.SelectedItem;
+                                }
+                                PvPController.ProjectileWeapon[args.Player.Index, type] = args.Player.SelectedItem;
+                                break;
+                        }
+                    }
+
                     if (PvPController.weapons.Count(p => p.netID == args.Player.SelectedItem.netID && p.buffs.Count() > 0) > 0)
                     {
                         var proj = new Terraria.Projectile();
@@ -269,26 +302,31 @@ namespace PvPController
             if (TShock.Players[playerId] == null || sourceItemType == -1)
                 return false;
 
+            // The sourceItemType is only reliable if no projectile is involved
+            // as sourceItemType is simply the active slot item
+            Item weapon = new Item();
             if (sourceProjectileType == -1)
             {
-                Item weapon = new Item();
                 weapon.SetDefaults(sourceItemType);
                 weapon.prefix = (byte)sourceItemPrefix;
+                weapon.owner = args.Player.Index;
+            }
+            else if (PvPController.ProjectileWeapon[args.Player.Index, sourceProjectileType] != null)
+            {
+                Item bestWeaponGuess = PvPController.ProjectileWeapon[args.Player.Index, sourceProjectileType];
+                weapon.SetDefaults(bestWeaponGuess.netID);
+                weapon.prefix = (byte)bestWeaponGuess.prefix;
                 weapon.owner = args.Player.Index;
             }
             float safeDamage = Main.player[args.Player.Index].GetWeaponDamage(weapon);
             Color msgColor;
             int realDamage;
 
-            Console.WriteLine($"Item: " + sourceItemType);
-            Console.WriteLine($"Item name: " + weapon.name);
-            Console.WriteLine($"Projectile: " + sourceProjectileType);
             var proj = new Projectile();
             proj.SetDefaults(sourceProjectileType);
-            Console.WriteLine($"Projectile Name: " + proj.name);
 
             // Check whether the source of damage is banned
-            if (PvPController.weapons.Count(p => p.netID == sourceItemType && p.banned) > 0 || PvPController.projectiles.Count(p => p.netID == sourceProjectileType && p.banned) > 0)
+            if (PvPController.weapons.Count(p => p.netID == weapon.netID && p.banned) > 0 || PvPController.projectiles.Count(p => p.netID == sourceProjectileType && p.banned) > 0)
             {
                 args.Player.SendData(PacketTypes.PlayerHp, "", playerId);
                 return true;
@@ -296,7 +334,7 @@ namespace PvPController
             else
             {
                 // Get the weapon and whether a modification exists
-                var weaponModificationExists = PvPController.weapons.Count(p => p.netID == sourceItemType && p.damageRatio != 1f) > 0;
+                var weaponModificationExists = PvPController.weapons.Count(p => p.netID == weapon.netID && p.damageRatio != 1f) > 0;
                 var projectileModificationExists = PvPController.projectiles.Count(p => p.netID == sourceProjectileType && p.damageRatio != 1f) > 0;
 
                 if (projectileModificationExists || weaponModificationExists)
@@ -310,7 +348,7 @@ namespace PvPController
 
                     if (weaponModificationExists)
                     {
-                        var weaponModification = PvPController.weapons.FirstOrDefault(p => p.netID == sourceItemType);
+                        var weaponModification = PvPController.weapons.FirstOrDefault(p => p.netID == weapon.netID);
                         safeDamage = Convert.ToInt16(safeDamage * weaponModification.damageRatio);
                     }
                     

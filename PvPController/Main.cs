@@ -44,7 +44,7 @@ namespace PvPController
         public static List<EquipItem> equipItems = new List<EquipItem>();
 
         // Tracks what weapon created what projectile for the specified projectile index
-        public static Item[] ProjectileWeapon = new Item[400];
+        public static Item[,] ProjectileWeapon = new Item[255, Main.maxProjectileTypes];
 
         // Tracks The last active bow weapon for the specified player index
         public static Item[] LastActiveBow = new Item[255];
@@ -323,6 +323,8 @@ namespace PvPController
                 equipItems.Add(new EquipItem(netID, true));
             }
             e.Player.SendSuccessMessage("Reloaded PvPController config.");
+            weapons = database.GetWeapons();
+            projectiles = database.GetProjectiles();
         }
 
         /* Disposes of any registered hooks*/
