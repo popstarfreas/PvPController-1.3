@@ -128,40 +128,14 @@ namespace PvPController
                 }
                 else
                 {
-                    // Check that they either own the projectile, or it is inactive (and therefore this is a new one)
+                    Item weaponUsed = args.Player.SelectedItem;
+                    // Check that they either own the projectile (existing), or it is inactive (and therefore this is a new one)
                     if (Main.projectile[ident].active == false || Main.projectile[ident].owner == owner)
                     {
-                        // Used if we need an instance of Item that we can't link to an inventory slot
-                        Item fabricatedItem;
-                        switch (type)
-                        {
-                            case 640: // Luminite Arrow (second phase)
-                                PvPController.ProjectileWeapon[args.Player.Index, type] = PvPController.LastActiveBow[args.Player.Index];
-                                break;
-
-                            case 245: // Crimson Rain
-                                fabricatedItem = (new Item());
-                                fabricatedItem.SetDefaults(1256);
-                                PvPController.ProjectileWeapon[args.Player.Index, type] = fabricatedItem;
-                                break;
-
-                            case 239: // Nimbus Rain
-                                fabricatedItem = (new Item());
-                                fabricatedItem.SetDefaults(1244);
-                                PvPController.ProjectileWeapon[args.Player.Index, type] = fabricatedItem;
-                                break;
-
-                            default:
-                                if (Utils.IsBow(args.Player.SelectedItem))
-                                {
-                                    PvPController.LastActiveBow[args.Player.Index] = args.Player.SelectedItem;
-                                }
-                                PvPController.ProjectileWeapon[args.Player.Index, type] = args.Player.SelectedItem;
-                                break;
-                        }
+                        weaponUsed = ProjectileMapper.DetermineWeaponUsed(type, args.Player);
                     }
 
-                    if (PvPController.weapons.Count(p => p.netID == args.Player.SelectedItem.netID && p.buffs.Count() > 0) > 0)
+                    if (PvPController.weapons.Count(p => p.netID == weaponUsed.netID && p.buffs.Count() > 0) > 0)
                     {
                         var proj = new Terraria.Projectile();
                         proj.SetDefaults(type);
@@ -356,7 +330,7 @@ namespace PvPController
                     realDamage = (int)Math.Round(realDamage * (1 - Main.player[playerId].endurance));
                     Main.player[playerId].Hurt(new PlayerDeathReason(), (int)safeDamage, 1, true, false, false, 3);
 
-                    /* Send out the HP value so that the client who now has the wrong value
+                    /* Send out the HP value to the client who now has the wrong value
                         * (due to health being update before the packet is sent) can use the right one */
                     args.Player.SendData(PacketTypes.PlayerHp, "", playerId);
 
