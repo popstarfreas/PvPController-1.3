@@ -43,21 +43,21 @@ namespace PvPController
 
         public static void HandleNimbus(ref Item weaponUsed, int type, TSPlayer player)
         {
-            weaponUsed = (new Item());
+            weaponUsed = new Item();
             weaponUsed.SetDefaults(1244);
             PvPController.ProjectileWeapon[player.Index, type] = weaponUsed;
         }
 
         public static void HandleCrimsonRain(ref Item weaponUsed, int type, TSPlayer player)
         {
-            weaponUsed = (new Item());
+            weaponUsed = new Item();
             weaponUsed.SetDefaults(1256);
             PvPController.ProjectileWeapon[player.Index, type] = weaponUsed;
         }
 
         public static void HandleRainbowGun(ref Item weaponUsed, int type, TSPlayer player)
         {
-            weaponUsed = (new Item());
+            weaponUsed = new Item();
             weaponUsed.SetDefaults(1260);
             PvPController.ProjectileWeapon[player.Index, type] = weaponUsed;
         }
