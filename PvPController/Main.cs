@@ -16,7 +16,15 @@ namespace PvPController
     [ApiVersion(1, 25)]
     public class PvPController : TerrariaPlugin
     {
+        // Events for other plugins
+        public delegate void PlayerKillHandler(object sender, PlayerKillEventArgs e);
+        public static event PlayerKillHandler OnPlayerKill;
+
+        public delegate void PlayerDamageHandler(object sender, PlayerDamageEventArgs e);
+        public static event PlayerDamageHandler OnPlayerDamage;
+
         public Timer OnSecondUpdate;
+        private GetDataHandlers GetDataHandler;
         public static Config Config = new Config();
         public static Database database;
         public static ConnectionMultiplexer redis;
@@ -114,7 +122,7 @@ namespace PvPController
                 parseUpdate(message);
             });
 
-            GetDataHandlers.InitGetDataHandler();
+            GetDataHandler = new GetDataHandlers();
 
             /* Database setup */
             database = new Database();
@@ -126,6 +134,18 @@ namespace PvPController
             OnSecondUpdate = new Timer(1000);
             OnSecondUpdate.Enabled = true;
             OnSecondUpdate.Elapsed += SecondUpdate;
+        }
+
+        /* Raises a player kill event if there are any listeners */
+        internal static void RaisePlayerKillEvent(object sender, PlayerKillEventArgs args)
+        {
+            OnPlayerKill?.Invoke(sender, args);
+        }
+
+        /* Raises a player death event if there are any listeners */
+        internal static void RaisePlayerDamageEvent(object sender, PlayerDamageEventArgs args)
+        {
+            OnPlayerDamage?.Invoke(sender, args);
         }
 
         /* Parses updates from the redis channel. These changes will be made to the existing
@@ -293,7 +313,7 @@ namespace PvPController
             {
                 try
                 {
-                    if (GetDataHandlers.HandlerGetData(type, player, data))
+                    if (GetDataHandler.HandlerGetData(type, player, data))
                     {
                         args.Handled = true;
                     }

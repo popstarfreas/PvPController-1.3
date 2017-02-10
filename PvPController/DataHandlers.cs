@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Terraria;
 using TShockAPI;
-using System.Diagnostics;
 using Terraria.DataStructures;
 
 namespace PvPController
@@ -25,12 +24,13 @@ namespace PvPController
     }
 
     /* Contains the handlers for certain packets received by the server */
-    internal static class GetDataHandlers
+    internal class GetDataHandlers
     {
+        private PlayerKiller[] Killers = new PlayerKiller[255];
         private static Dictionary<PacketTypes, GetDataHandlerDelegate> _getDataHandlerDelegates;
 
         /* Adds the handler functions as handlers for the given PacketType */
-        public static void InitGetDataHandler()
+        public GetDataHandlers()
         {
             _getDataHandlerDelegates = new Dictionary<PacketTypes, GetDataHandlerDelegate>
             {
@@ -57,7 +57,7 @@ namespace PvPController
          *          Whether or not the packet was handled (and should therefore not be processed
          *          by anything else)
          */
-        public static bool HandlerGetData(PacketTypes type, TSPlayer player, MemoryStream data)
+        public bool HandlerGetData(PacketTypes type, TSPlayer player, MemoryStream data)
         {
             GetDataHandlerDelegate handler;
             if (_getDataHandlerDelegates.TryGetValue(type, out handler))
@@ -88,7 +88,7 @@ namespace PvPController
          *          Whether or not the packet was handled (and should therefore not be processed
          *          by anything else)
          */
-        private static bool HandleProjectile(GetDataHandlerArgs args)
+        private bool HandleProjectile(GetDataHandlerArgs args)
         {
             var ident = args.Data.ReadInt16();
             var pos = new Vector2(args.Data.ReadSingle(), args.Data.ReadSingle());
@@ -195,7 +195,7 @@ namespace PvPController
          *          Whether or not the packet was handled (and should therefore not be processed
          *          by anything else)
          */
-        private static bool HandlePlayerUpdate(GetDataHandlerArgs args)
+        private bool HandlePlayerUpdate(GetDataHandlerArgs args)
         {
             byte plr = args.Data.ReadInt8();
             BitsByte control = args.Data.ReadInt8();
@@ -217,7 +217,40 @@ namespace PvPController
 
             return false;
         }
-        
+
+
+
+        /* Raises an event about who and with what weapon a player was killed
+         * 
+         * @param args
+         *          The GetDataHandlersArgs object containing the player who sent the packet
+         *          and the data in it.
+         *          
+         * @return
+         *          Whether or not the packet was handled (and should therefore not be processed
+         *          by anything else)
+         */
+        private bool HandleDeath(GetDataHandlerArgs args)
+        {
+            try
+            {
+                if (args.Player == null) return false;
+
+                if (args.Player.TPlayer.hostile && Killers[args.Player.Index] != null)
+                {
+                    PlayerKillEventArgs killArgs = new PlayerKillEventArgs(Killers[args.Player.Index].Player, args.Player, Killers[args.Player.Index].Weapon);
+                    PvPController.RaisePlayerKillEvent(this, killArgs);
+                    Killers[args.Player.Index] = null;
+                }
+            }
+            catch (Exception e)
+            {
+                TShock.Log.ConsoleError(e.ToString());
+            }
+
+            return false;
+        }
+
         /* Determines whether to block damage if they have recently used a banned item
          * or modifies damage if the projectile is on the modifications list.
          * 
@@ -229,7 +262,7 @@ namespace PvPController
          *          Whether or not the packet was handled (and should therefore not be processed
          *          by anything else)
          */
-        private static bool HandleDamage(GetDataHandlerArgs args)
+        private bool HandleDamage(GetDataHandlerArgs args)
         {
             if (args.Player == null) return false;
             var index = args.Player.Index;
@@ -349,12 +382,18 @@ namespace PvPController
             msgColor = new Color(162, 0, 255);
             realDamage = (int)Main.CalculatePlayerDamage((int)safeDamage, Main.player[playerId].statDefense);
             realDamage = (int)Math.Round(realDamage * (1 - Main.player[playerId].endurance));
+
+            // Send Damage and Damage Text
             NetMessage.SendData((int)PacketTypes.CreateCombatText, index, -1, $"{realDamage}", (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
             SendPlayerDamage(TShock.Players[playerId], dir, (int)safeDamage);
+
+
+            Killers[playerId] = new PlayerKiller(args.Player, weapon);
+            PvPController.RaisePlayerDamageEvent(this, new PlayerDamageEventArgs(args.Player, TShock.Players[playerId], weapon, realDamage));
             return true;
         }
         
-        private static bool HandleOldDamage(GetDataHandlerArgs args)
+        private bool HandleOldDamage(GetDataHandlerArgs args)
         {
             return true;
         }
@@ -371,7 +410,7 @@ namespace PvPController
          * @param damage
          *          The amount of damage to deal to the player
          */
-        private static void SendPlayerDamage(TSPlayer player, int hitDirection, int damage)
+        private void SendPlayerDamage(TSPlayer player, int hitDirection, int damage)
         {
             // This flag permutation gives low invinc frames for proper client
             // sync
