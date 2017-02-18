@@ -81,77 +81,66 @@ namespace PvPController
 
         private static void HandleNettleBurst(ref Item weaponUsed, int type, TSPlayer player)
         {
-            weaponUsed = new Item();
             weaponUsed.SetDefaults(788);
             PvPController.ProjectileWeapon[player.Index, type] = weaponUsed;
         }
 
         private static void HandleNimbus(ref Item weaponUsed, int type, TSPlayer player)
         {
-            weaponUsed = new Item();
             weaponUsed.SetDefaults(1244);
             PvPController.ProjectileWeapon[player.Index, type] = weaponUsed;
         }
 
         private static void HandleCrimsonRain(ref Item weaponUsed, int type, TSPlayer player)
         {
-            weaponUsed = new Item();
             weaponUsed.SetDefaults(1256);
             PvPController.ProjectileWeapon[player.Index, type] = weaponUsed;
         }
 
         private static void HandleStynger(ref Item weaponUsed, int type, TSPlayer player)
         {
-            weaponUsed = (new Item());
             weaponUsed.SetDefaults(1258);
             PvPController.ProjectileWeapon[player.Index, type] = weaponUsed;
         }
 
         private static void HandleRainbowGun(ref Item weaponUsed, int type, TSPlayer player)
         {
-            weaponUsed = new Item();
             weaponUsed.SetDefaults(1260);
             PvPController.ProjectileWeapon[player.Index, type] = weaponUsed;
         }
 
         private static void HandleInfernoBlast(ref Item weaponUsed, int type, TSPlayer player)
         {
-            weaponUsed = (new Item());
             weaponUsed.SetDefaults(1445);
             PvPController.ProjectileWeapon[player.Index, type] = weaponUsed;
         }
 
         private static void HandleTinyEater(ref Item weaponUsed, int type, TSPlayer player)
         {
-            weaponUsed = (new Item());
             weaponUsed.SetDefaults(1571);
             PvPController.ProjectileWeapon[player.Index, type] = weaponUsed;
         }
 
         private static void HandleNorthPole(ref Item weaponUsed, int type, TSPlayer player)
         {
-            weaponUsed = (new Item());
             weaponUsed.SetDefaults(1947);
             PvPController.ProjectileWeapon[player.Index, type] = weaponUsed;
         }
 
         private static void HandleMolotovFire(ref Item weaponUsed, int type, TSPlayer player)
         {
-            weaponUsed = (new Item());
             weaponUsed.SetDefaults(2590);
             PvPController.ProjectileWeapon[player.Index, type] = weaponUsed;
         }
 
         private static void HandleToxicCloud(ref Item weaponUsed, int type, TSPlayer player)
         {
-            weaponUsed = (new Item());
             weaponUsed.SetDefaults(3105);
             PvPController.ProjectileWeapon[player.Index, type] = weaponUsed;
         }
 
         private static void HandleCrystalCharge(ref Item weaponUsed, int type, TSPlayer player)
         {
-            weaponUsed = (new Item());
             weaponUsed.SetDefaults(3209);
             PvPController.ProjectileWeapon[player.Index, type] = weaponUsed;
         }
