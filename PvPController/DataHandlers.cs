@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Terraria;
 using TShockAPI;
+using Microsoft.Xna.Framework;
 using Terraria.DataStructures;
 
 namespace PvPController
@@ -23,40 +24,38 @@ namespace PvPController
         }
     }
 
-    /* Contains the handlers for certain packets received by the server */
+    /// <summary>
+    /// Contains the handlers for certain packets received by the server
+    /// </summary>
     internal class GetDataHandlers
     {
+        public DateTime[] LastMessage = new DateTime[256];
         private PlayerKiller[] Killers = new PlayerKiller[255];
-        private static Dictionary<PacketTypes, GetDataHandlerDelegate> _getDataHandlerDelegates;
+        private Dictionary<PacketTypes, GetDataHandlerDelegate> _getDataHandlerDelegates;
 
-        /* Adds the handler functions as handlers for the given PacketType */
+        /// <summary>
+        /// Adds the handler functions as handlers for the given PacketType
+        /// </summary>
         public GetDataHandlers()
         {
             _getDataHandlerDelegates = new Dictionary<PacketTypes, GetDataHandlerDelegate>
             {
-                {PacketTypes.ProjectileNew, HandleProjectile},
-                {PacketTypes.PlayerHurtV2, HandleDamage},
-                {PacketTypes.PlayerDamage, HandleOldDamage },
-                {PacketTypes.PlayerUpdate, HandlePlayerUpdate},
+                { PacketTypes.ProjectileNew, HandleProjectile },
+                { PacketTypes.PlayerHurtV2, HandleDamage },
+                { PacketTypes.PlayerDeathV2, HandleDeath },
+                { PacketTypes.PlayerUpdate, HandlePlayerUpdate},
             };
         }
 
-        /* Checks if there is a handler for the given packet type and will return
-         * whether or not the packet was handled
-         * 
-         * @param type
-         *          The PacketType
-         *          
-         * @param player
-         *          The player that sent the packet
-         *          
-         * @param data
-         *          The packet data
-         * 
-         * @return
-         *          Whether or not the packet was handled (and should therefore not be processed
-         *          by anything else)
-         */
+        /// <summary>
+        /// Checks if there is a handler for the given packet type and will return whether or not
+        /// the packet was handled
+        /// </summary>
+        /// <param name="type">The packet type</param>
+        /// <param name="player">THe player that sent the packet</param>
+        /// <param name="data">The packet data</param>
+        /// <returns>Whether or not the packet was handled (and should therefore not be processed
+        /// by anything else)</returns>
         public bool HandlerGetData(PacketTypes type, TSPlayer player, MemoryStream data)
         {
             GetDataHandlerDelegate handler;
@@ -73,21 +72,14 @@ namespace PvPController
             }
             return false;
         }
-        
-        public static DateTime[] LastMessage = new DateTime[256];
 
-        /* Handles the case when the player shoots a banned projectile and
-         * starts a stopwatch from the moment they use it, or reset
-         * the existing stopwatch. It also updates the array of ProjectileWeapon
-         * so that the projectile can be traced back to its weapon.
-         * 
-         * @param args
-         *          The GetDataHandlerArgs containing the player that sent the packet and the data of the packet
-         * 
-         * @return
-         *          Whether or not the packet was handled (and should therefore not be processed
-         *          by anything else)
-         */
+        /// <summary>
+        /// Applies modifications to a new projectile and removes disallowed ones
+        /// </summary>
+        /// <param name="args">The GetDataHandlerArgs object containing the player that sent the
+        /// packet and the data of the packet</param>
+        /// <returns>Whether or not the packet was handled (and should therefore not be processed
+        /// by anything else)</returns>
         private bool HandleProjectile(GetDataHandlerArgs args)
         {
             var ident = args.Data.ReadInt16();
@@ -103,7 +95,7 @@ namespace PvPController
 
             if (args.Player.TPlayer.hostile)
             {
-                if (PvPController.projectiles.Count(p => p.netID == type && p.banned) > 0)
+                if (PvPController.Projectiles.Count(p => p.netID == type && p.banned) > 0)
                 {
                     var proj = Main.projectile[ident];
                     proj.active = false;
@@ -129,20 +121,21 @@ namespace PvPController
                 else
                 {
                     Item weaponUsed = args.Player.SelectedItem;
+
                     // Check that they either own the projectile (existing), or it is inactive (and therefore this is a new one)
                     if (Main.projectile[ident].active == false || Main.projectile[ident].owner == owner)
                     {
                         weaponUsed = ProjectileMapper.DetermineWeaponUsed(type, args.Player);
                     }
 
-                    if (PvPController.weapons.Count(p => p.netID == weaponUsed.netID && p.buffs.Count() > 0) > 0)
+                    if (PvPController.Weapons.Count(p => p.netID == weaponUsed.netID && p.buffs.Count() > 0) > 0)
                     {
                         var proj = new Terraria.Projectile();
                         proj.SetDefaults(type);
 
                         if (proj.ranged && dmg > 0)
                         {
-                            var weapon = PvPController.weapons.FirstOrDefault(p => p.netID == args.Player.SelectedItem.netID);
+                            var weapon = PvPController.Weapons.FirstOrDefault(p => p.netID == args.Player.SelectedItem.netID);
                             var weaponBuffs = weapon.buffs;
                             foreach (var weaponBuff in weaponBuffs)
                             {
@@ -151,10 +144,11 @@ namespace PvPController
                         }
                     }
 
-                    var modification = PvPController.projectiles.FirstOrDefault(p => p.netID == type);
+                    var modification = PvPController.Projectiles.FirstOrDefault(p => p.netID == type);
                     StorageTypes.Weapon weaponModification = null;
-                    if (dmg > 0) {
-                       weaponModification = PvPController.weapons.FirstOrDefault(p => p.netID == args.Player.SelectedItem.netID);
+                    if (dmg > 0)
+                    {
+                        weaponModification = PvPController.Weapons.FirstOrDefault(p => p.netID == args.Player.SelectedItem.netID);
                     }
                     if ((modification != null && modification.velocityRatio != 1f) || (weaponModification != null && weaponModification.velocityRatio != 1f))
                     {
@@ -185,16 +179,14 @@ namespace PvPController
             return false;
         }
 
-        /* Handles the case when the player uses a banned item and
-         * warns the player that the weapon does no damage.
-         * 
-         * @param args
-         *          The GetDataHandlerArgs containing the player that sent the packet and the data of the packet
-         * 
-         * @return
-         *          Whether or not the packet was handled (and should therefore not be processed
-         *          by anything else)
-         */
+        /// <summary>
+        /// Handles the case when the player uses a banned item and warns
+        /// the player that the weapon does no damage
+        /// </summary>
+        /// <param name="args">The GetDataHandlers args containing the player that sent
+        /// the packet and the data of the packet</param>
+        /// <returns>Whether or not the packet was handled (and should therefore not be processed
+        /// by anything else)</returns>
         private bool HandlePlayerUpdate(GetDataHandlerArgs args)
         {
             byte plr = args.Data.ReadInt8();
@@ -203,8 +195,8 @@ namespace PvPController
             byte item = args.Data.ReadInt8();
             var pos = new Vector2(args.Data.ReadSingle(), args.Data.ReadSingle());
             var vel = Vector2.Zero;
-            
-            if (control[5] && PvPController.weapons.Count(p => p.netID == args.Player.SelectedItem.netID && p.banned) > 0 && args.Player.TPlayer.hostile)
+
+            if (control[5] && PvPController.Weapons.Count(p => p.netID == args.Player.SelectedItem.netID && p.banned) > 0 && args.Player.TPlayer.hostile)
             {
                 if ((DateTime.Now - LastMessage[args.Player.Index]).TotalSeconds > 2)
                 {
@@ -218,18 +210,13 @@ namespace PvPController
             return false;
         }
 
-
-
-        /* Raises an event about who and with what weapon a player was killed
-         * 
-         * @param args
-         *          The GetDataHandlersArgs object containing the player who sent the packet
-         *          and the data in it.
-         *          
-         * @return
-         *          Whether or not the packet was handled (and should therefore not be processed
-         *          by anything else)
-         */
+        /// <summary>
+        /// Raises an event about who and with what weapon a player was killed
+        /// </summary>
+        /// <param name="args">The GetDataHandlersArgs object containing the player who sent the
+        /// packet and the data in it</param>
+        /// <returns>Whether or not the packet was handled (and should therefore not be processed
+        /// by anything else)</returns>
         private bool HandleDeath(GetDataHandlerArgs args)
         {
             try
@@ -251,20 +238,18 @@ namespace PvPController
             return false;
         }
 
-        /* Determines whether to block damage if they have recently used a banned item
-         * or modifies damage if the projectile is on the modifications list.
-         * 
-         * @param args
-         *          The GetDataHandlerArgs object containing the player who sent the packet
-         *          and the data in it.
-         * 
-         * @return
-         *          Whether or not the packet was handled (and should therefore not be processed
-         *          by anything else)
-         */
+        /// <summary>
+        /// Determines whether to block damage if they have recently used a banned item or modifies damage
+        /// if the projectile is on the modifications list.
+        /// </summary>
+        /// <param name="args">The GetDataHandlerArgs object containging the player who sent the packet and the
+        /// data in it</param>
+        /// <returns>Whether or not the packet was handled (and should therefore not be processed
+        /// by anything else</returns>
         private bool HandleDamage(GetDataHandlerArgs args)
         {
             if (args.Player == null) return false;
+
             var index = args.Player.Index;
             var playerId = (byte)args.Data.ReadByte();
             var damageSourceFlags = (BitsByte)args.Data.ReadByte();
@@ -300,7 +285,7 @@ namespace PvPController
             {
                 sourceItemPrefix = args.Data.ReadByte();
             }
-            
+
             var damage = args.Data.ReadInt16();
             var dir = args.Data.ReadByte();
             var flags = args.Data.ReadByte();
@@ -333,7 +318,7 @@ namespace PvPController
             proj.SetDefaults(sourceProjectileType);
 
             // Check whether the source of damage is banned
-            if (PvPController.weapons.Count(p => p.netID == weapon.netID && p.banned) > 0 || PvPController.projectiles.Count(p => p.netID == sourceProjectileType && p.banned) > 0)
+            if (PvPController.Weapons.Count(p => p.netID == weapon.netID && p.banned) > 0 || PvPController.Projectiles.Count(p => p.netID == sourceProjectileType && p.banned) > 0)
             {
                 args.Player.SendData(PacketTypes.PlayerHp, "", playerId);
                 return true;
@@ -341,24 +326,24 @@ namespace PvPController
             else
             {
                 // Get the weapon and whether a modification exists
-                var weaponModificationExists = PvPController.weapons.Count(p => p.netID == weapon.netID && p.damageRatio != 1f) > 0;
-                var projectileModificationExists = PvPController.projectiles.Count(p => p.netID == sourceProjectileType && p.damageRatio != 1f) > 0;
+                var weaponModificationExists = PvPController.Weapons.Count(p => p.netID == weapon.netID && p.damageRatio != 1f) > 0;
+                var projectileModificationExists = PvPController.Projectiles.Count(p => p.netID == sourceProjectileType && p.damageRatio != 1f) > 0;
 
                 if (projectileModificationExists || weaponModificationExists)
                 {
                     // Get then apply modification to damage
                     if (projectileModificationExists)
                     {
-                        var projectileModification = PvPController.projectiles.FirstOrDefault(p => p.netID == sourceProjectileType);
+                        var projectileModification = PvPController.Projectiles.FirstOrDefault(p => p.netID == sourceProjectileType);
                         safeDamage = Convert.ToInt16(safeDamage * projectileModification.damageRatio);
                     }
 
                     if (weaponModificationExists)
                     {
-                        var weaponModification = PvPController.weapons.FirstOrDefault(p => p.netID == weapon.netID);
+                        var weaponModification = PvPController.Weapons.FirstOrDefault(p => p.netID == weapon.netID);
                         safeDamage = Convert.ToInt16(safeDamage * weaponModification.damageRatio);
                     }
-                    
+
                     realDamage = (int)Main.CalculatePlayerDamage((int)safeDamage, Main.player[playerId].statDefense);
                     realDamage = (int)Math.Round(realDamage * (1 - Main.player[playerId].endurance));
                     Main.player[playerId].Hurt(new PlayerDeathReason(), (int)safeDamage, 1, true, false, false, 3);
@@ -374,6 +359,9 @@ namespace PvPController
 
                     // Send the damage using the special method to avoid invincibility frames issue
                     SendPlayerDamage(TShock.Players[playerId], dir, (int)safeDamage);
+
+                    Killers[playerId] = new PlayerKiller(args.Player, weapon);
+                    PvPController.RaisePlayerDamageEvent(this, new PlayerDamageEventArgs(args.Player, TShock.Players[playerId], weapon, realDamage));
                     return true;
                 }
             }
@@ -387,29 +375,18 @@ namespace PvPController
             NetMessage.SendData((int)PacketTypes.CreateCombatText, index, -1, $"{realDamage}", (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
             SendPlayerDamage(TShock.Players[playerId], dir, (int)safeDamage);
 
-
             Killers[playerId] = new PlayerKiller(args.Player, weapon);
             PvPController.RaisePlayerDamageEvent(this, new PlayerDamageEventArgs(args.Player, TShock.Players[playerId], weapon, realDamage));
             return true;
         }
-        
-        private bool HandleOldDamage(GetDataHandlerArgs args)
-        {
-            return true;
-        }
 
-        /* Sends a raw packet built from base values to both fix the invincibility frames
-         * and provide a way to modify incoming damage.
-         * 
-         * @param player
-         *          The TSPlayer object of the player to get hurt
-         *          
-         * @param hitDirection
-         *          The hit direction (left or right, -1, 1)
-         *          
-         * @param damage
-         *          The amount of damage to deal to the player
-         */
+        /// <summary>
+        /// Sends a raw packet built from base values to both fix the invincibility frames
+        /// and provide a way to modify incoming damage.
+        /// </summary>
+        /// <param name="player">The TSPLayer object of the player to get hurt</param>
+        /// <param name="hitDirection">The hit direction (left or right, -1 or 1)</param>
+        /// <param name="damage">The amount of damage to deal to the player</param>
         private void SendPlayerDamage(TSPlayer player, int hitDirection, int damage)
         {
             // This flag permutation gives low invinc frames for proper client

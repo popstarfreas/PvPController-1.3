@@ -34,7 +34,7 @@ namespace PvPController
             var cursor = weaponCollection.Find(new BsonDocument()).ToCursor();
             foreach (var item in cursor.ToEnumerable())
             {
-                var weapon = new Weapon(item["NetID"].AsInt32, 
+                var weapon = new Weapon(item["NetID"].AsInt32,
                                         Convert.ToSingle(item["CurrentDamage"]) / Convert.ToSingle(item["BaseDamage"]),
                                         Convert.ToSingle(item["CurrentVelocity"]) / Convert.ToSingle(item["BaseVelocity"]),
                                         Convert.ToBoolean(item["Banned"]));
@@ -60,7 +60,11 @@ namespace PvPController
             return projectileList;
         }
 
-        // Gets the weapon buffs and adds them to the appropriate weapons in the weapons list
+
+        /// <summary>
+        /// Gets the weapon buffs and adds them to the appropriate weapons in the weapons list
+        /// </summary>
+        /// <param name="weapons"></param>
         public void addWeaponBuffs(List<Weapon> weapons)
         {
             var cursor = weaponBuffCollection.Find(new BsonDocument()).ToCursor();
