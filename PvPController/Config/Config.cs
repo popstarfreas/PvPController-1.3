@@ -10,7 +10,7 @@ namespace PvPController
         public bool HideDisallowedProjectiles;
         public bool BanTeleportItems;
         public string redisHost;
-        public DatabaseConfig database;
+        public DatabaseConfig Database;
 
         public Config(string path)
         {
@@ -38,7 +38,7 @@ namespace PvPController
             HideDisallowedProjectiles = fileConfig.HideDisallowedProjectiles;
             BanTeleportItems = fileConfig.BanTeleportItems;
             redisHost = fileConfig.redisHost;
-            database = fileConfig.database;
+            Database = fileConfig.Database;
 
         }
 
@@ -58,9 +58,9 @@ namespace PvPController
             DamageDisableSeconds = 12;
             HideDisallowedProjectiles = true;
             BanTeleportItems = true;
-            database.Hostname = "localhost";
-            database.Port = 27017;
-            database.DBName = "pvpcontroller";
+            Database.Hostname = "localhost";
+            Database.Port = 27017;
+            Database.DBName = "pvpcontroller";
             redisHost = "localhost";
         }
     }

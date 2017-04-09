@@ -17,9 +17,9 @@ namespace PvPController
 
         public Database(Config config)
         {
-            var host = config.database.Hostname;
-            var port = config.database.Port;
-            var dbName = config.database.DBName;
+            var host = config.Database.Hostname;
+            var port = config.Database.Port;
+            var dbName = config.Database.DBName;
 
             client = new MongoClient($"mongodb://{host}:{port}");
             db = client.GetDatabase(dbName);

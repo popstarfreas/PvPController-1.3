@@ -6,6 +6,7 @@ using System.Linq;
 using Terraria;
 using TShockAPI;
 using Terraria.DataStructures;
+using Microsoft.Xna.Framework;
 
 namespace PvPController
 {
