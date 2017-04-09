@@ -15,11 +15,11 @@ namespace PvPController
         private IMongoCollection<BsonDocument> projectileCollection;
         private IMongoCollection<BsonDocument> weaponBuffCollection;
 
-        public Database()
+        public Database(Config config)
         {
-            var host = PvPController.Config.Database.Hostname;
-            var port = PvPController.Config.Database.Port;
-            var dbName = PvPController.Config.Database.DBName;
+            var host = config.database.Hostname;
+            var port = config.database.Port;
+            var dbName = config.database.DBName;
 
             client = new MongoClient($"mongodb://{host}:{port}");
             db = client.GetDatabase(dbName);
