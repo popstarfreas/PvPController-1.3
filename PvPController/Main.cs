@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 
 namespace PvPController
 {
-    [ApiVersion(1, 25)]
+    [ApiVersion(2, 0)]
     public class PvPController : TerrariaPlugin
     {
         // Events for other plugins
