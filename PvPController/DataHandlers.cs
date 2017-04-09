@@ -45,6 +45,7 @@ namespace PvPController
                 { PacketTypes.Teleport, HandlePlayerTeleport },
                 { PacketTypes.TeleportationPotion, HandlePlayerTeleportPotion },
                 { PacketTypes.PlayerSpawn, HandlePlayerSpawn },
+                { PacketTypes.PlayerSlot, HandleInventoryUpdate }
             };
         }
 
@@ -218,7 +219,7 @@ namespace PvPController
         /// Determines whether to block damage if they have recently used a banned item or modifies damage
         /// if the projectile is on the modifications list.
         /// </summary>
-        /// <param name="args">The GetDataHandlerArgs object containging the player who sent the packet and the
+        /// <param name="args">The GetDataHandlerArgs object containing the player who sent the packet and the
         /// data in it</param>
         /// <returns>Whether or not the packet was handled (and should therefore not be processed
         /// by anything else</returns>
@@ -356,7 +357,7 @@ namespace PvPController
         /// <summary>
         /// Ensures that a player is forbidden from teleporting while in pvp
         /// </summary>
-        /// <param name="args">The GetDataHandlerArgs object containging the player who sent the packet and the
+        /// <param name="args">The GetDataHandlerArgs object containing the player who sent the packet and the
         /// data in it</param>
         /// <returns>Whether or not the packet was handled (and should therefore not be processed
         /// by anything else</returns>
@@ -379,7 +380,7 @@ namespace PvPController
         /// <summary>
         /// Ensures that a player is forbidden from teleporting while in pvp
         /// </summary>
-        /// <param name="args">The GetDataHandlerArgs object containging the player who sent the packet and the
+        /// <param name="args">The GetDataHandlerArgs object containing the player who sent the packet and the
         /// data in it</param>
         /// <returns>Whether or not the packet was handled (and should therefore not be processed
         /// by anything else</returns>
@@ -391,7 +392,7 @@ namespace PvPController
         /// <summary>
         /// Ensures that a player is forbidden from teleporting while in pvp
         /// </summary>
-        /// <param name="args">The GetDataHandlerArgs object containging the player who sent the packet and the
+        /// <param name="args">The GetDataHandlerArgs object containing the player who sent the packet and the
         /// data in it</param>
         /// <returns>Whether or not the packet was handled (and should therefore not be processed
         /// by anything else</returns>
@@ -411,6 +412,135 @@ namespace PvPController
 
             isDead[args.Player.Index] = false;
             return args.Player.TPlayer.hostile;
+        }
+
+        /// <summary>
+        /// Prevents prefixes on armor items
+        /// </summary>
+        /// <param name="args">The GetDataHandlerArgs object containing the player who sent the packet and the
+        /// data in it</param>
+        /// <returns>Whether or not the packet was handled (and should therefore not be processed
+        /// by anything else)</returns>
+        private bool HandleInventoryUpdate(GetDataHandlerArgs args)
+        {
+            args.Data.ReadByte();
+            int slotId = args.Data.ReadByte();
+            args.Data.ReadInt16();
+            int prefix = args.Data.ReadByte();
+            int netId = args.Data.ReadInt16();
+
+            // Is armor
+            if (Controller.Config.BanPrefixedArmor && prefix > 0 && slotId >= 59 && slotId <= 61)
+            {
+                ForceItem(args.Player.TshockPlayer, slotId, 0, netId, 1);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Forces a slot to a specific item regardless of SSC
+        /// </summary>
+        /// <param name="player">The player that is being updated</param>
+        /// <param name="slotId">The slot id of the slot to update</param>
+        /// <param name="prefix">The prefix to set on the item</param>
+        /// <param name="netId">The netId to set on the item</param>
+        private void ForceItem(TSPlayer player, int slotId, int prefix, int netId, int stack)
+        {
+            ForceClientSSC(true, player);
+            ForceServerItem(player.TPlayer, slotId, prefix, netId, stack);
+            ForceClientSSC(false, player);
+        }
+
+        /// <summary>
+        /// Forces a slot to a specific item in the server storage of the players inventory and broadcasts the update
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="slotId"></param>
+        /// <param name="prefix"></param>
+        /// <param name="netId"></param>
+        /// <param name="stack"></param>
+        private void ForceServerItem(Terraria.Player player, int slotId, int prefix, int netId, int stack)
+        {
+            if (slotId < NetItem.InventorySlots)
+            {
+                //58
+                player.inventory[slotId].netDefaults(netId);
+
+                if (player.inventory[slotId].netID != 0)
+                {
+                    player.inventory[slotId].stack = stack;
+                    player.inventory[slotId].prefix = (byte)prefix;
+                    NetMessage.SendData(5, -1, -1, player.inventory[slotId].name, player.whoAmI, slotId, player.inventory[slotId].prefix, player.inventory[slotId].stack);
+                }
+            }
+            else if (slotId < NetItem.InventorySlots + NetItem.ArmorSlots)
+            {
+                //59-78
+                var index = slotId - NetItem.InventorySlots;
+                player.armor[index].netDefaults(netId);
+
+                if (player.armor[index].netID != 0)
+                {
+                    player.armor[index].stack = stack;
+                    player.armor[index].prefix = (byte)prefix;
+                    NetMessage.SendData(5, -1, -1, player.armor[index].name, player.whoAmI, slotId, player.armor[index].prefix, player.armor[index].stack);
+                }
+            }
+            else if (slotId < NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots)
+            {
+                //79-88
+                var index = slotId - (NetItem.InventorySlots + NetItem.ArmorSlots);
+                player.dye[index].netDefaults(netId);
+
+                if (player.dye[index].netID != 0)
+                {
+                    player.dye[index].stack = stack;
+                    player.dye[index].prefix = (byte)prefix;
+                    NetMessage.SendData(5, -1, -1, player.dye[index].name, player.whoAmI, slotId, player.dye[index].prefix, player.dye[index].stack);
+                }
+            }
+            else if (slotId <
+                NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots + NetItem.MiscEquipSlots)
+            {
+                //89-93
+                var index = slotId - (NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots);
+                player.miscEquips[index].netDefaults(netId);
+
+                if (player.miscEquips[index].netID != 0)
+                {
+                    player.miscEquips[index].stack = stack;
+                    player.miscEquips[index].prefix = (byte)prefix;
+                    NetMessage.SendData(5, -1, -1, player.miscEquips[index].name, player.whoAmI, slotId, player.miscEquips[index].prefix, player.miscEquips[index].stack);
+                }
+            }
+            else if (slotId <
+                NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots + NetItem.MiscEquipSlots
+                + NetItem.MiscDyeSlots)
+            {
+                //93-98
+                var index = slotId - (NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots
+                    + NetItem.MiscEquipSlots);
+                player.miscDyes[index].netDefaults(netId);
+
+                if (player.miscDyes[index].netID != 0)
+                {
+                    player.miscDyes[index].stack = stack;
+                    player.miscDyes[index].prefix = (byte)prefix;
+                    NetMessage.SendData(5, -1, -1, player.miscDyes[index].name, player.whoAmI, slotId, player.miscDyes[index].prefix, player.miscDyes[index].stack);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Forces a clients SSC to a specific value
+        /// </summary>
+        /// <param name="on">Whether SSC is to be set to on or not</param>
+        private void ForceClientSSC(bool on, TSPlayer player)
+        {
+
+            Main.ServerSideCharacter = on;
+            NetMessage.SendData((int)PacketTypes.WorldInfo, player.Index, -1, "");
         }
 
         /// <summary>
