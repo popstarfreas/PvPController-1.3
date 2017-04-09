@@ -384,7 +384,7 @@ namespace PvPController
         /// Sends a raw packet built from base values to both fix the invincibility frames
         /// and provide a way to modify incoming damage.
         /// </summary>
-        /// <param name="player">The TSPLayer object of the player to get hurt</param>
+        /// <param name="player">The TSPlayer object of the player to get hurt</param>
         /// <param name="hitDirection">The hit direction (left or right, -1 or 1)</param>
         /// <param name="damage">The amount of damage to deal to the player</param>
         private void SendPlayerDamage(TSPlayer player, int hitDirection, int damage)
