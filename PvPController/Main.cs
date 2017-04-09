@@ -18,44 +18,23 @@ namespace PvPController
     {
         // Events for other plugins
         public delegate void PlayerKillHandler(object sender, PlayerKillEventArgs e);
-        public static event PlayerKillHandler OnPlayerKill;
+        public event PlayerKillHandler OnPlayerKill;
 
         public delegate void PlayerDamageHandler(object sender, PlayerDamageEventArgs e);
-        public static event PlayerDamageHandler OnPlayerDamage;
+        public event PlayerDamageHandler OnPlayerDamage;
+        public DateTime[] LastMessage = new DateTime[256];
 
         public Timer OnSecondUpdate;
         private GetDataHandlers GetDataHandler;
-        public static Config Config = new Config();
-        public static Database Database;
-        public static ConnectionMultiplexer Redis;
-        public static string[] ControlTypes = {
-            "WeaponBan",
-            "ProjectileBan",
-            "ArmorBan",
-            "AccessoriesBan",
-            "ProjectileDamage",
-            "ProjectileSpeed",
-            "WeaponBuff",
-            "WeaponDamage"
-        };
-        public static string[] ControlEntryTypes = {
-            "ItemID",
-            "ProjectileID",
-            "BuffID",
-            "DamageRatio",
-            "SpeedRatio",
-            "Milliseconds"
-        };
+        private string ConfigPath;
+        public Config Config;
+        public Database Database;
+        public ConnectionMultiplexer Redis;
 
-        public static List<Weapon> Weapons = new List<Weapon>();
-        public static List<StorageTypes.Projectile> Projectiles = new List<StorageTypes.Projectile>();
-        public static List<EquipItem> EquipItems = new List<EquipItem>();
-
-        // Tracks what weapon created what projectile for the specified projectile index
-        public static Item[,] ProjectileWeapon = new Item[255, Main.maxProjectileTypes];
-
-        // Tracks The last active bow weapon for the specified player index
-        public static Item[] LastActiveBow = new Item[255];
+        public List<Weapon> Weapons = new List<Weapon>();
+        public List<StorageTypes.Projectile> Projectiles = new List<StorageTypes.Projectile>();
+        public List<EquipItem> EquipItems = new List<EquipItem>();
+        public Player[] Players = new Player[256];
 
         public override string Author
         {
@@ -94,7 +73,7 @@ namespace PvPController
         {
             Order = 6;
         }
-
+        
         /// <summary>
         /// Registers the appropriate hooks, loads the existing config or write one if not, and then starts the one second update timer.
         /// </summary>
@@ -104,28 +83,27 @@ namespace PvPController
             Commands.ChatCommands.Add(new Command("pvpcontroller.reload", Reload, "pvpcreload"));
 
             /* Config Setup */
-            string path = Path.Combine(TShock.SavePath, "PvPController.json");
-            if (!File.Exists(path))
-                Config.WriteTemplates(path);
-            Config = Config.Read(path);
+            ConfigPath = Path.Combine(TShock.SavePath, "PvPController.json");
+            Config = new Config(ConfigPath);
+
             foreach (var netID in Config.BannedArmorPieces)
             {
                 EquipItems.Add(new EquipItem(netID, true));
             }
 
             /* Redis Setup */
-            Redis = ConnectionMultiplexer.Connect(Config.RedisHost);
+            Redis = ConnectionMultiplexer.Connect(Config.redisHost);
             ISubscriber sub = Redis.GetSubscriber();
             sub.SubscribeAsync("pvpcontroller-updates", (channel, message) =>
             {
                 Console.WriteLine(message);
-                ParseUpdate(message);
+                parseUpdate(message);
             });
 
-            GetDataHandler = new GetDataHandlers();
+            GetDataHandler = new GetDataHandlers(this);
 
             /* Database setup */
-            Database = new Database();
+            Database = new Database(Config);
             Weapons = Database.GetWeapons();
             Projectiles = Database.GetProjectiles();
             Database.addWeaponBuffs(Weapons);
@@ -141,17 +119,17 @@ namespace PvPController
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="args"></param>
-        internal static void RaisePlayerKillEvent(object sender, PlayerKillEventArgs args)
+        internal void RaisePlayerKillEvent(object sender, PlayerKillEventArgs args)
         {
             OnPlayerKill?.Invoke(sender, args);
         }
-
+        
         /// <summary>
         /// Riases a player death event if there are any listeners
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="args"></param>
-        internal static void RaisePlayerDamageEvent(object sender, PlayerDamageEventArgs args)
+        internal void RaisePlayerDamageEvent(object sender, PlayerDamageEventArgs args)
         {
             OnPlayerDamage?.Invoke(sender, args);
         }
@@ -162,20 +140,20 @@ namespace PvPController
         /// already been updated by the time this comes through (or is in the process of).
         /// </summary>
         /// <param name="message">The raw message from the subscribed channel</param>
-        void ParseUpdate(string message)
+        void parseUpdate(string message)
         {
             dynamic update = JObject.Parse(message);
             string objectType = update.objectType;
             Console.WriteLine(objectType);
             float value = update.value;
 
-            switch (objectType)
+            switch(objectType)
             {
                 case "weapon":
-                    HandleWeaponUpdate(update);
+                    handleWeaponUpdate(update);
                     break;
                 case "projectile":
-                    HandleProjectileUpdate(update);
+                    handleProjectileUpdate(update);
                     break;
             }
         }
@@ -184,7 +162,7 @@ namespace PvPController
         /// Handles an update for an existing weapon
         /// </summary>
         /// <param name="update">The update object containing the netID, changeType and value</param>
-        void HandleWeaponUpdate(dynamic update)
+        void handleWeaponUpdate(dynamic update)
         {
             string changeType = update.changeType;
             int netID = update.netID;
@@ -216,12 +194,12 @@ namespace PvPController
         /// Handles an update for an existing weapon
         /// </summary>
         /// <param name="update">The update object containing the netID, changeType and value</param>
-        void HandleProjectileUpdate(dynamic update)
+        void handleProjectileUpdate(dynamic update)
         {
             string changeType = update.changeType;
             int netID = update.netID;
             var projectile = Projectiles.FirstOrDefault(p => p.netID == netID);
-
+            
             /* The weapon was not found in the list, therefore it cannot be used
              * since we do not have the other values of the object.*/
             if (projectile == null)
@@ -290,8 +268,7 @@ namespace PvPController
                         }
                     }
                 }
-            }
-            catch (Exception e)
+            } catch(Exception e)
             {
                 TShock.Log.ConsoleError(e.Message);
             }
@@ -304,7 +281,7 @@ namespace PvPController
         private void GetData(GetDataEventArgs args)
         {
             var type = args.MsgID;
-            var player = TShock.Players[args.Msg.whoAmI];
+            var player = Players[args.Msg.whoAmI];
 
             if (player == null)
             {
@@ -312,7 +289,7 @@ namespace PvPController
                 return;
             }
 
-            if (!player.ConnectionAlive)
+            if (!player.TshockPlayer.ConnectionAlive)
             {
                 args.Handled = true;
                 return;
@@ -349,15 +326,15 @@ namespace PvPController
         /// what player used the command, and the command parameters</param>
         void Reload(CommandArgs e)
         {
-            string path = Path.Combine(TShock.SavePath, "PvPController.json");
-            if (!File.Exists(path))
-                Config.WriteTemplates(path);
-            Config = Config.Read(path);
+            Config.Reload(ConfigPath);
+
             foreach (var netID in Config.BannedArmorPieces)
             {
                 EquipItems.Add(new EquipItem(netID, true));
             }
+
             e.Player.SendSuccessMessage("Reloaded PvPController config.");
+
             Weapons = Database.GetWeapons();
             Projectiles = Database.GetProjectiles();
         }

@@ -84,6 +84,7 @@
     <Compile Include="Config\DatabaseConfig.cs" />
     <Compile Include="DataHandlers.cs" />
     <Compile Include="Main.cs" />
+    <Compile Include="Player.cs" />
     <Compile Include="PlayerDamageEventArgs.cs" />
     <Compile Include="PlayerKillEventArgs.cs" />
     <Compile Include="PlayerKiller.cs" />

@@ -8,34 +8,60 @@ namespace PvPController
         public int[] BannedArmorPieces;
         public int DamageDisableSeconds;
         public bool HideDisallowedProjectiles;
-        public string RedisHost;
-        public DatabaseConfig Database;
+        public bool BanTeleportItems;
+        public string redisHost;
+        public DatabaseConfig database;
+
+        public Config(string path)
+        {
+            LoadOrCreate(path);
+        }
+
+        private void LoadOrCreate(string path)
+        {
+            if (!File.Exists(path))
+            {
+                SetDefaults();
+                Write(path);
+            }
+            else
+            {
+                Load(path);
+            }
+        }
+
+        private void Load(string path)
+        {
+            var fileConfig = JsonConvert.DeserializeObject<Config>(File.ReadAllText(path));
+            BannedArmorPieces = fileConfig.BannedArmorPieces;
+            DamageDisableSeconds = fileConfig.DamageDisableSeconds;
+            HideDisallowedProjectiles = fileConfig.HideDisallowedProjectiles;
+            BanTeleportItems = fileConfig.BanTeleportItems;
+            redisHost = fileConfig.redisHost;
+            database = fileConfig.database;
+
+        }
 
         public void Write(string path)
         {
             File.WriteAllText(path, JsonConvert.SerializeObject(this, Formatting.Indented));
         }
 
-        public static Config Read(string path)
+        public void Reload(string path)
         {
-            if (!File.Exists(path))
-            {
-                Config.WriteTemplates(path);
-            }
-            return JsonConvert.DeserializeObject<Config>(File.ReadAllText(path));
+            LoadOrCreate(path);
         }
 
-        public static void WriteTemplates(string file)
+        public void SetDefaults()
         {
-            var Conf = new Config();
-            Conf.BannedArmorPieces = new int[] { };
-            Conf.DamageDisableSeconds = 12;
-            Conf.HideDisallowedProjectiles = true;
-            Conf.Database.Hostname = "localhost";
-            Conf.Database.Port = 27017;
-            Conf.Database.DBName = "pvpcontroller";
-            Conf.RedisHost = "localhost";
-            Conf.Write(file);   
+            BannedArmorPieces = new int[] { };
+            DamageDisableSeconds = 12;
+            HideDisallowedProjectiles = true;
+            BanTeleportItems = true;
+            database.Hostname = "localhost";
+            database.Port = 27017;
+            database.DBName = "pvpcontroller";
+            redisHost = "localhost";
         }
     }
 }
