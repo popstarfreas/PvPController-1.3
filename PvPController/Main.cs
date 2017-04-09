@@ -80,6 +80,9 @@ namespace PvPController
         public override void Initialize()
         {
             ServerApi.Hooks.NetGetData.Register(this, GetData);
+            ServerApi.Hooks.ServerJoin.Register(this, ServerJoin);
+            ServerApi.Hooks.ServerLeave.Register(this, ServerLeave);
+            ServerApi.Hooks.ServerChat.Register(this, ServerChat);
             Commands.ChatCommands.Add(new Command("pvpcontroller.reload", Reload, "pvpcreload"));
 
             /* Config Setup */
@@ -112,6 +115,50 @@ namespace PvPController
             OnSecondUpdate = new Timer(1000);
             OnSecondUpdate.Enabled = true;
             OnSecondUpdate.Elapsed += SecondUpdate;
+        }
+
+        /// <summary>
+        /// Initializes a new player object when someone joins
+        /// </summary>
+        /// <param name="args"></param>
+        private void ServerJoin(JoinEventArgs args)
+        {
+            Players[args.Who] = new Player(TShock.Players[args.Who]);
+            Console.WriteLine("Player joined.");
+        }
+
+        /// <summary>
+        /// Nulls the existing player object for the player index when someone leaves
+        /// </summary>
+        /// <param name="args"></param>
+        private void ServerLeave(LeaveEventArgs args)
+        {
+            Players[args.Who] = null;
+        }
+
+        /// <summary>
+        /// Prevents people using teleport commands in pvp
+        /// </summary>
+        /// <param name="args"></param>
+        private void ServerChat(ServerChatEventArgs args)
+        {
+            var player = Players[args.Who];
+            if (player != null && Config.BanTeleportItems && player.TPlayer.hostile)
+            {
+                if (args.Text.StartsWith(TShock.Config.CommandSpecifier) || args.Text.StartsWith(TShock.Config.CommandSilentSpecifier))
+                {
+                    var command = args.Text.Substring(1).ToLower();
+                    if (command.StartsWith("spawn") || command.StartsWith("tp") || command.StartsWith("warp") || command.StartsWith("home")
+                      || command.StartsWith("left") || command.StartsWith("right") || command.StartsWith("up") || command.StartsWith("down"))
+                    {
+                        if (!player.TshockPlayer.HasPermission("pvpcontroller.teleportimmune"))
+                        {
+                            player.TshockPlayer.SendData(PacketTypes.Teleport, "", 0, player.Index, player.TshockPlayer.LastNetPosition.X, player.TshockPlayer.LastNetPosition.Y);
+                            player.TshockPlayer.SetBuff(149, 60);
+                        }
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -230,7 +277,7 @@ namespace PvPController
         /// <param name="args"></param>
         private void SecondUpdate(object sender, ElapsedEventArgs args)
         {
-            var players = TShock.Players.ToList();
+            var players = Players.ToList();
             try
             {
                 foreach (var player in players)
@@ -242,9 +289,9 @@ namespace PvPController
                             if (player.TPlayer.blackBelt)
                             {
                                 player.TPlayer.hostile = false;
-                                player.SendData(PacketTypes.TogglePvp, "", player.Index, 0f, 0f, 0f, 0);
-                                player.Teleport(Main.spawnTileX * 16, (Main.spawnTileY - 3) * 16);
-                                player.SendMessage("TELEPORT WARNING: Master Ninja Gear & Blackbelt are not allowed for PvP!", 217, 255, 0);
+                                player.TshockPlayer.SendData(PacketTypes.TogglePvp, "", player.Index, 0f, 0f, 0f, 0);
+                                player.TshockPlayer.Teleport(Main.spawnTileX * 16, (Main.spawnTileY - 3) * 16);
+                                player.TshockPlayer.SendMessage("TELEPORT WARNING: Master Ninja Gear & Blackbelt are not allowed for PvP!", 217, 255, 0);
                             }
                             else
                             {
@@ -258,12 +305,17 @@ namespace PvPController
                                     {
                                         string type = bannedArmor ? "Armor" : "Accessory";
                                         player.TPlayer.hostile = false;
-                                        player.SendData(PacketTypes.TogglePvp, "", player.Index, 0f, 0f, 0f, 0);
-                                        player.Teleport(Main.spawnTileX * 16, (Main.spawnTileY - 3) * 16);
-                                        player.SendMessage($"TELEPORT WARNING:{type} {player.TPlayer.armor[slot].name} is not allowed for PvP!", 217, 255, 0);
+                                        player.TshockPlayer.SendData(PacketTypes.TogglePvp, "", player.Index, 0f, 0f, 0f, 0);
+                                        player.TshockPlayer.Teleport(Main.spawnTileX * 16, (Main.spawnTileY - 3) * 16);
+                                        player.TshockPlayer.SendMessage($"TELEPORT WARNING:{type} {player.TPlayer.armor[slot].name} is not allowed for PvP!", 217, 255, 0);
                                         break;
                                     }
                                 }
+                            }
+                            
+                            if (Config.BanPrefixedArmor)
+                            {
+                                player.CheckArmorAndEnforce(GetDataHandler);
                             }
                         }
                     }
@@ -285,7 +337,6 @@ namespace PvPController
 
             if (player == null)
             {
-                args.Handled = true;
                 return;
             }
 
@@ -348,6 +399,8 @@ namespace PvPController
             if (disposing)
             {
                 ServerApi.Hooks.NetGetData.Deregister(this, GetData);
+                ServerApi.Hooks.ServerJoin.Deregister(this, ServerJoin);
+                ServerApi.Hooks.ServerChat.Deregister(this, ServerChat);
                 base.Dispose(disposing);
             }
         }

@@ -446,7 +446,7 @@ namespace PvPController
         /// <param name="slotId">The slot id of the slot to update</param>
         /// <param name="prefix">The prefix to set on the item</param>
         /// <param name="netId">The netId to set on the item</param>
-        private void ForceItem(TSPlayer player, int slotId, int prefix, int netId, int stack)
+        public void ForceItem(TSPlayer player, int slotId, int prefix, int netId, int stack)
         {
             ForceClientSSC(true, player);
             ForceServerItem(player.TPlayer, slotId, prefix, netId, stack);

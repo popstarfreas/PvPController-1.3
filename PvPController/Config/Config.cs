@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using Newtonsoft.Json;
+using TShockAPI;
 
 namespace PvPController
 {
@@ -11,7 +12,7 @@ namespace PvPController
         public bool BanTeleportItems;
         public bool BanPrefixedArmor;
         public string redisHost;
-        public DatabaseConfig database;
+        public DatabaseConfig Database;
 
         public Config(string path)
         {
@@ -20,7 +21,12 @@ namespace PvPController
 
         private void LoadOrCreate(string path)
         {
-            if (!File.Exists(path))
+            if (path == null)
+            {
+                SetDefaults();
+                Write(Path.Combine(TShock.SavePath, "PvPController.json"));
+            }
+            else if (!File.Exists(path))
             {
                 SetDefaults();
                 Write(path);
@@ -40,7 +46,7 @@ namespace PvPController
             BanTeleportItems = fileConfig.BanTeleportItems;
             BanPrefixedArmor = fileConfig.BanPrefixedArmor;
             redisHost = fileConfig.redisHost;
-            database = fileConfig.database;
+            Database = fileConfig.Database;
 
         }
 
@@ -61,9 +67,9 @@ namespace PvPController
             HideDisallowedProjectiles = true;
             BanTeleportItems = true;
             BanPrefixedArmor = true;
-            database.Hostname = "localhost";
-            database.Port = 27017;
-            database.DBName = "pvpcontroller";
+            Database.Hostname = "localhost";
+            Database.Port = 27017;
+            Database.DBName = "pvpcontroller";
             redisHost = "localhost";
         }
     }

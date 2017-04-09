@@ -84,5 +84,27 @@ namespace PvPController
                 LastMessage = DateTime.Now;
             }
         }
+
+        /// <summary>
+        /// Ensures that this player has non-prefixed armor if the option is enabled
+        /// </summary>
+        /// <param name="handlers"></param>
+        internal void CheckArmorAndEnforce(GetDataHandlers handlers)
+        {
+            if (TPlayer.armor[0].prefix > 0)
+            {
+                handlers.ForceItem(TshockPlayer, 59, 0, TPlayer.armor[0].netID, 1);
+            }
+
+            if (TPlayer.armor[1].prefix > 0)
+            {
+                handlers.ForceItem(TshockPlayer, 60, 0, TPlayer.armor[1].netID, 1);
+            }
+
+            if (TPlayer.armor[2].prefix > 0)
+            {
+                handlers.ForceItem(TshockPlayer, 61, 0, TPlayer.armor[2].netID, 1);
+            }
+        }
     }
 }
