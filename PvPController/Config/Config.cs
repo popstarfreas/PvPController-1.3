@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using Newtonsoft.Json;
 using TShockAPI;
+using System;
 
 namespace PvPController
 {
@@ -14,9 +15,15 @@ namespace PvPController
         public string redisHost;
         public DatabaseConfig Database;
 
-        public Config(string path)
+        public Config(string path = null)
         {
-            LoadOrCreate(path);
+            if (path != null)
+            {
+                LoadOrCreate(path);
+            } else
+            {
+                SetDefaults();
+            }
         }
 
         private void LoadOrCreate(string path)
@@ -24,7 +31,6 @@ namespace PvPController
             if (path == null)
             {
                 SetDefaults();
-                Write(Path.Combine(TShock.SavePath, "PvPController.json"));
             }
             else if (!File.Exists(path))
             {
