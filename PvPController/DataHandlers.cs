@@ -40,9 +40,10 @@ namespace PvPController
 
             _getDataHandlerDelegates = new Dictionary<PacketTypes, GetDataHandlerDelegate>
             {
-                {PacketTypes.ProjectileNew, HandleProjectile},
-                {PacketTypes.PlayerHurtV2, HandleDamage},
-                {PacketTypes.PlayerUpdate, HandlePlayerUpdate},
+                { PacketTypes.ProjectileNew, HandleProjectile },
+                { PacketTypes.PlayerHurtV2, HandleDamage },
+                { PacketTypes.PlayerDeathV2, HandleDeath },
+                { PacketTypes.PlayerUpdate, HandlePlayerUpdate},
                 { PacketTypes.Teleport, HandlePlayerTeleport },
                 { PacketTypes.TeleportationPotion, HandlePlayerTeleportPotion },
                 { PacketTypes.PlayerSpawn, HandlePlayerSpawn },
@@ -104,56 +105,7 @@ namespace PvPController
                 }
                 else
                 {
-                    Item weaponUsed = args.Player.TshockPlayer.SelectedItem;
-                    if (Main.projectile[ident].active == false || Main.projectile[ident].owner == owner)
-                    {
-                        weaponUsed = ProjectileMapper.DetermineWeaponUsed(type, args.Player);
-                    }
-
-                    if (Controller.Weapons.Count(p => p.netID == weaponUsed.netID && p.buffs.Count() > 0) > 0)
-                    {
-                        var proj = new Terraria.Projectile();
-                        proj.SetDefaults(type);
-
-                        if (proj.ranged && dmg > 0)
-                        {
-                            var weapon = Controller.Weapons.FirstOrDefault(p => p.netID == args.Player.TshockPlayer.SelectedItem.netID);
-                            var weaponBuffs = weapon.buffs;
-                            foreach (var weaponBuff in weaponBuffs)
-                            {
-                                args.Player.TshockPlayer.SetBuff(weaponBuff.netID, Convert.ToInt32((weaponBuff.milliseconds / 1000f) * 60), true);
-                            }
-                        }
-                    }
-
-                    var modification = Controller.Projectiles.FirstOrDefault(p => p.netID == type);
-                    StorageTypes.Weapon weaponModification = null;
-                    if (dmg > 0) {
-                       weaponModification = Controller.Weapons.FirstOrDefault(p => p.netID == args.Player.TshockPlayer.SelectedItem.netID);
-                    }
-                    if ((modification != null && modification.velocityRatio != 1f) || (weaponModification != null && weaponModification.velocityRatio != 1f))
-                    {
-                        var proj = Main.projectile[ident];
-                        var velocity = vel;
-                        if (modification != null)
-                        {
-                            velocity *= modification.velocityRatio;
-                        }
-
-                        if (weaponModification != null)
-                        {
-                            velocity *= weaponModification.velocityRatio;
-                        }
-                        proj.SetDefaults(type);
-                        proj.damage = dmg;
-                        proj.active = true;
-                        proj.identity = ident;
-                        proj.owner = owner;
-                        proj.velocity = velocity;
-                        proj.position = pos;
-                        NetMessage.SendData((int)PacketTypes.ProjectileNew, -1, -1, "", ident);
-                        return true;
-                    }
+                    return ModifyProjectile(args.Player, ident, owner, type, dmg, vel, pos);
                 }
             }
 
@@ -197,7 +149,7 @@ namespace PvPController
         {
             try
             {
-                if (args.Player == null) return false;
+                isDead[args.Player.Index] = true;
 
                 if (args.Player.TPlayer.hostile && Killers[args.Player.Index] != null)
                 {
@@ -210,8 +162,6 @@ namespace PvPController
             {
                 TShock.Log.ConsoleError(e.ToString());
             }
-
-            isDead[args.Player.Index] = true;
 
             return false;
         }
@@ -404,7 +354,7 @@ namespace PvPController
                 isDead[args.Player.Index] = false;
                 return false;
             }
-
+            
             if (args.Player.TPlayer.hostile && !isDead[args.Player.Index])
             {
                 args.Player.TshockPlayer.SendData(PacketTypes.Teleport, "", 0, args.Player.Index, args.Player.TshockPlayer.LastNetPosition.X, args.Player.TshockPlayer.LastNetPosition.Y);
@@ -537,11 +487,87 @@ namespace PvPController
         /// Forces a clients SSC to a specific value
         /// </summary>
         /// <param name="on">Whether SSC is to be set to on or not</param>
+        /// <param name="player"></param>
         private void ForceClientSSC(bool on, TSPlayer player)
         {
 
             Main.ServerSideCharacter = on;
             NetMessage.SendData((int)PacketTypes.WorldInfo, player.Index, -1, "");
+        }
+    
+        /// <summary>
+        /// Modifies a projectile based on the controller settings
+        /// </summary>
+        /// <param name="player">The player who owns the projectile</param>
+        /// <param name="ident">The index of the projectile in the array</param>
+        /// <param name="owner">The owner id of the projectile</param>
+        /// <param name="type">The type of the projectile</param>
+        /// <param name="dmg">The damage of the projectile (used to checking against things like hook projectiles)</param>
+        /// <param name="vel">The velocity of the projectile</param>
+        /// <param name="pos">The position of the projectile</param>
+        /// <returns></returns>
+        private bool ModifyProjectile(Player player, int ident, int owner, int type, int dmg, Vector2 vel, Vector2 pos)
+        {
+            Item weaponUsed = player.TshockPlayer.SelectedItem;
+
+            // Get weapon used if this is a new projectile or update to existing
+            if (Main.projectile[ident].active == false || Main.projectile[ident].owner == owner)
+            {
+                weaponUsed = ProjectileMapper.DetermineWeaponUsed(type, player);
+            }
+
+            // Apply buffs to user if weapon buffs exist
+            if (Controller.Weapons.Count(p => p.netID == weaponUsed.netID && p.buffs.Count() > 0) > 0)
+            {
+                var proj = new Projectile();
+                proj.SetDefaults(type);
+
+                if (proj.ranged && dmg > 0)
+                {
+                    var weapon = Controller.Weapons.FirstOrDefault(p => p.netID == player.TshockPlayer.SelectedItem.netID);
+                    var weaponBuffs = weapon.buffs;
+                    foreach (var weaponBuff in weaponBuffs)
+                    {
+                        player.TshockPlayer.SetBuff(weaponBuff.netID, Convert.ToInt32((weaponBuff.milliseconds / 1000f) * 60), true);
+                    }
+                }
+            }
+
+            // Load weapon modifications if this is a damaging projectile and the used weapon has modifications
+            var modification = Controller.Projectiles.FirstOrDefault(p => p.netID == type);
+            StorageTypes.Weapon weaponModification = null;
+            if (dmg > 0)
+            {
+                weaponModification = Controller.Weapons.FirstOrDefault(p => p.netID == player.TshockPlayer.SelectedItem.netID);
+            }
+
+
+            // Apply modifications and update if they exist
+            if ((modification != null && modification.velocityRatio != 1f) || (weaponModification != null && weaponModification.velocityRatio != 1f))
+            {
+                var proj = Main.projectile[ident];
+                var velocity = vel;
+                if (modification != null)
+                {
+                    velocity *= modification.velocityRatio;
+                }
+
+                if (weaponModification != null)
+                {
+                    velocity *= weaponModification.velocityRatio;
+                }
+                proj.SetDefaults(type);
+                proj.damage = dmg;
+                proj.active = true;
+                proj.identity = ident;
+                proj.owner = owner;
+                proj.velocity = velocity;
+                proj.position = pos;
+                NetMessage.SendData((int)PacketTypes.ProjectileNew, -1, -1, "", ident);
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
