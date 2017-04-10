@@ -18,10 +18,10 @@ namespace PvPController
     {
         // Events for other plugins
         public delegate void PlayerKillHandler(object sender, PlayerKillEventArgs e);
-        public event PlayerKillHandler OnPlayerKill;
+        public static event PlayerKillHandler OnPlayerKill;
 
         public delegate void PlayerDamageHandler(object sender, PlayerDamageEventArgs e);
-        public event PlayerDamageHandler OnPlayerDamage;
+        public static event PlayerDamageHandler OnPlayerDamage;
         public DateTime[] LastMessage = new DateTime[256];
 
         public Timer OnSecondUpdate;
