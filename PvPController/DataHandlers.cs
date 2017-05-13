@@ -30,7 +30,6 @@ namespace PvPController
         private PlayerKiller[] Killers = new PlayerKiller[255];
         private static Dictionary<PacketTypes, GetDataHandlerDelegate> _getDataHandlerDelegates;
         private PvPController Controller;
-        private bool[] isDead = new bool[256];
 
 
         /* Adds the handler functions as handlers for the given PacketType */
@@ -44,10 +43,13 @@ namespace PvPController
                 { PacketTypes.PlayerHurtV2, HandleDamage },
                 { PacketTypes.PlayerDeathV2, HandleDeath },
                 { PacketTypes.PlayerUpdate, HandlePlayerUpdate},
+                { PacketTypes.PlayerHp, HandlePlayerHp },
                 { PacketTypes.Teleport, HandlePlayerTeleport },
                 { PacketTypes.TeleportationPotion, HandlePlayerTeleportPotion },
                 { PacketTypes.PlayerSpawn, HandlePlayerSpawn },
-                { PacketTypes.PlayerSlot, HandleInventoryUpdate }
+                { PacketTypes.PlayerBuff, HandlePlayerBuffs },
+                { PacketTypes.PlayerSlot, HandleInventoryUpdate },
+                { PacketTypes.EffectHeal, HandleEffectHeal }
             };
         }
 
@@ -97,6 +99,7 @@ namespace PvPController
             owner = (byte)args.Player.Index;
             float[] ai = new float[Projectile.maxAI];
 
+            bool handled = false;
             if (args.Player.TPlayer.hostile)
             {
                 if (Controller.Projectiles.Count(p => p.netID == type && p.banned) > 0)
@@ -105,11 +108,19 @@ namespace PvPController
                 }
                 else
                 {
-                    return ModifyProjectile(args.Player, ident, owner, type, dmg, vel, pos);
+                    if (args.Player.IsDead)
+                    {
+                        handled = true;
+                        args.Player.RemoveProjectile(ident);
+                    }
+                    else
+                    {
+                        handled = args.Player.ModifyProjectile(ident, owner, type, dmg, vel, pos);
+                    }
                 }
             }
 
-            return false;
+            return handled;
         }
 
         /// <summary>
@@ -134,7 +145,34 @@ namespace PvPController
                 args.Player.TellWeaponIsIneffective();
             }
 
-            return false;
+            bool handled = false;
+
+            if (args.Player.IsDead)
+            {
+                handled = true;
+            }
+
+            return handled;
+        }
+
+        /// <summary>
+        /// Handles when a player tries to update their HP, which will be
+        /// rejected if they are in pvp as HP is controlled by the server only
+        /// </summary>
+        /// <param name="args">The GetDataHandlers args containing the player that sent
+        /// the packet and the data of the packet</param>
+        /// <returns>Whether or not the player was permitted a HP update</returns>
+        private bool HandlePlayerHp(GetDataHandlerArgs args)
+        {
+            bool handled = false;
+            args.Data.ReadByte();
+            int newHealth = args.Data.ReadInt16();
+            if (args.Player.TshockPlayer.TPlayer.hostile)
+            {
+                handled = true;
+            }
+
+            return handled;
         }
 
         /// <summary>
@@ -149,14 +187,7 @@ namespace PvPController
         {
             try
             {
-                isDead[args.Player.Index] = true;
-
-                if (args.Player.TPlayer.hostile && Killers[args.Player.Index] != null)
-                {
-                    PlayerKillEventArgs killArgs = new PlayerKillEventArgs(Killers[args.Player.Index].Player, args.Player.TshockPlayer, Killers[args.Player.Index].Weapon);
-                    Controller.RaisePlayerKillEvent(this, killArgs);
-                    Killers[args.Player.Index] = null;
-                }
+                args.Player.IsDead = true;
             }
             catch (Exception e)
             {
@@ -218,8 +249,8 @@ namespace PvPController
             var flags = args.Data.ReadByte();
             args.Data.ReadByte();
 
-            if (TShock.Players[playerId] == null || sourceItemType == -1)
-                return false;
+            if (TShock.Players[playerId] == null || sourceItemType == -1 || args.Player.IsDead || Controller.Players[playerId].IsDead)
+                return true;
 
             // The sourceItemType is only reliable if no projectile is involved
             // as sourceItemType is simply the active slot item
@@ -237,6 +268,7 @@ namespace PvPController
                 weapon.prefix = (byte)bestWeaponGuess.prefix;
                 weapon.owner = args.Player.Index;
             }
+
             float safeDamage = Main.player[args.Player.Index].GetWeaponDamage(weapon);
             Color msgColor;
             int realDamage;
@@ -273,19 +305,13 @@ namespace PvPController
                     
                     realDamage = (int)Main.CalculatePlayerDamage((int)safeDamage, Main.player[playerId].statDefense);
                     realDamage = (int)Math.Round(realDamage * (1 - Main.player[playerId].endurance));
-                    Main.player[playerId].Hurt(new PlayerDeathReason(), (int)safeDamage, 1, true, false, false, 3);
-
-                    /* Send out the HP value to the client who now has the wrong value
-                        * (due to health being update before the packet is sent) can use the right one */
-                    args.Player.TshockPlayer.SendData(PacketTypes.PlayerHp, "", playerId);
-
 
                     // Send the combat text
                     msgColor = new Color(162, 0, 255);
-                    NetMessage.SendData((int)PacketTypes.CreateCombatText, index, -1, $"{realDamage}", (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
+                    NetMessage.SendData((int)PacketTypes.CreateCombatText, index, -1, NetworkText.FromLiteral($"{realDamage}"), (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
 
-                    // Send the damage using the special method to avoid invincibility frames issue
-                    SendPlayerDamage(TShock.Players[playerId], dir, (int)safeDamage);
+                    ApplyPlayerDamage(args.Player.TshockPlayer, Controller.Players[playerId], weapon, dir, (int)safeDamage, realDamage);
+                    NetMessage.SendData((int)PacketTypes.PlayerHp, -1, playerId, "", playerId);
                     return true;
                 }
             }
@@ -296,12 +322,10 @@ namespace PvPController
             realDamage = (int)Math.Round(realDamage * (1 - Main.player[playerId].endurance));
 
             // Send Damage and Damage Text
-            NetMessage.SendData((int)PacketTypes.CreateCombatText, index, -1, $"{realDamage}", (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
-            SendPlayerDamage(TShock.Players[playerId], dir, (int)safeDamage);
-
-
+            NetMessage.SendData((int)PacketTypes.CreateCombatText, index, -1, NetworkText.FromLiteral($"{realDamage}"), (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
+            ApplyPlayerDamage(args.Player.TshockPlayer, Controller.Players[playerId], weapon, dir, (int)safeDamage, realDamage);
             Killers[playerId] = new PlayerKiller(args.Player.TshockPlayer, weapon);
-            Controller.RaisePlayerDamageEvent(this, new PlayerDamageEventArgs(args.Player.TshockPlayer, TShock.Players[playerId], weapon, realDamage));
+            NetMessage.SendData((int)PacketTypes.PlayerHp, -1, playerId, "", playerId);
             return true;
         }
 
@@ -349,22 +373,26 @@ namespace PvPController
         /// by anything else</returns>
         private bool HandlePlayerSpawn(GetDataHandlerArgs args)
         {
-            if (!Controller.Config.BanTeleportItems)
-            {
-                isDead[args.Player.Index] = false;
-                return false;
-            }
-            
-            if (args.Player.TPlayer.hostile && !isDead[args.Player.Index])
+            bool handled = false;
+            if (Controller.Config.BanTeleportItems && args.Player.TPlayer.hostile && !args.Player.IsDead)
             {
                 args.Player.TshockPlayer.SendData(PacketTypes.Teleport, "", 0, args.Player.Index, args.Player.TshockPlayer.LastNetPosition.X, args.Player.TshockPlayer.LastNetPosition.Y);
                 args.Player.TshockPlayer.SetBuff(149, 60);
+                handled = true;
+            } else if (args.Player.IsDead)
+            {
+                args.Player.TPlayer.statLifeMax = 500;
+                args.Player.TPlayer.statLifeMax2 = 600;
+                args.Player.TPlayer.statLife = args.Player.TPlayer.statLifeMax2;
+                args.Player.ForceActiveHealth(args.Player.TPlayer.statLife);
             }
 
-            isDead[args.Player.Index] = false;
-            return args.Player.TPlayer.hostile;
+            args.Player.IsDead = false;
+            args.Player.Spectating = false;
+            args.Player.LastHeal = DateTime.Now.AddSeconds(-Controller.Config.PotionHealCooldown);
+            return handled;
         }
-
+        
         /// <summary>
         /// Prevents prefixes on armor items
         /// </summary>
@@ -383,191 +411,117 @@ namespace PvPController
             // Is armor
             if (Controller.Config.BanPrefixedArmor && prefix > 0 && slotId >= 59 && slotId <= 61)
             {
-                ForceItem(args.Player.TshockPlayer, slotId, 0, netId, 1);
+                args.Player.ForceItem(slotId, 0, netId, 1);
             }
 
             return false;
         }
 
         /// <summary>
-        /// Forces a slot to a specific item regardless of SSC
+        /// Handles when a client tries to heal
         /// </summary>
-        /// <param name="player">The player that is being updated</param>
-        /// <param name="slotId">The slot id of the slot to update</param>
-        /// <param name="prefix">The prefix to set on the item</param>
-        /// <param name="netId">The netId to set on the item</param>
-        public void ForceItem(TSPlayer player, int slotId, int prefix, int netId, int stack)
-        {
-            ForceClientSSC(true, player);
-            ForceServerItem(player.TPlayer, slotId, prefix, netId, stack);
-            ForceClientSSC(false, player);
-        }
-
-        /// <summary>
-        /// Forces a slot to a specific item in the server storage of the players inventory and broadcasts the update
-        /// </summary>
-        /// <param name="player"></param>
-        /// <param name="slotId"></param>
-        /// <param name="prefix"></param>
-        /// <param name="netId"></param>
-        /// <param name="stack"></param>
-        private void ForceServerItem(Terraria.Player player, int slotId, int prefix, int netId, int stack)
-        {
-            if (slotId < NetItem.InventorySlots)
-            {
-                //58
-                player.inventory[slotId].netDefaults(netId);
-
-                if (player.inventory[slotId].netID != 0)
-                {
-                    player.inventory[slotId].stack = stack;
-                    player.inventory[slotId].prefix = (byte)prefix;
-                    NetMessage.SendData(5, -1, -1, player.inventory[slotId].name, player.whoAmI, slotId, player.inventory[slotId].prefix, player.inventory[slotId].stack);
-                }
-            }
-            else if (slotId < NetItem.InventorySlots + NetItem.ArmorSlots)
-            {
-                //59-78
-                var index = slotId - NetItem.InventorySlots;
-                player.armor[index].netDefaults(netId);
-
-                if (player.armor[index].netID != 0)
-                {
-                    player.armor[index].stack = stack;
-                    player.armor[index].prefix = (byte)prefix;
-                    NetMessage.SendData(5, -1, -1, player.armor[index].name, player.whoAmI, slotId, player.armor[index].prefix, player.armor[index].stack);
-                }
-            }
-            else if (slotId < NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots)
-            {
-                //79-88
-                var index = slotId - (NetItem.InventorySlots + NetItem.ArmorSlots);
-                player.dye[index].netDefaults(netId);
-
-                if (player.dye[index].netID != 0)
-                {
-                    player.dye[index].stack = stack;
-                    player.dye[index].prefix = (byte)prefix;
-                    NetMessage.SendData(5, -1, -1, player.dye[index].name, player.whoAmI, slotId, player.dye[index].prefix, player.dye[index].stack);
-                }
-            }
-            else if (slotId <
-                NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots + NetItem.MiscEquipSlots)
-            {
-                //89-93
-                var index = slotId - (NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots);
-                player.miscEquips[index].netDefaults(netId);
-
-                if (player.miscEquips[index].netID != 0)
-                {
-                    player.miscEquips[index].stack = stack;
-                    player.miscEquips[index].prefix = (byte)prefix;
-                    NetMessage.SendData(5, -1, -1, player.miscEquips[index].name, player.whoAmI, slotId, player.miscEquips[index].prefix, player.miscEquips[index].stack);
-                }
-            }
-            else if (slotId <
-                NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots + NetItem.MiscEquipSlots
-                + NetItem.MiscDyeSlots)
-            {
-                //93-98
-                var index = slotId - (NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots
-                    + NetItem.MiscEquipSlots);
-                player.miscDyes[index].netDefaults(netId);
-
-                if (player.miscDyes[index].netID != 0)
-                {
-                    player.miscDyes[index].stack = stack;
-                    player.miscDyes[index].prefix = (byte)prefix;
-                    NetMessage.SendData(5, -1, -1, player.miscDyes[index].name, player.whoAmI, slotId, player.miscDyes[index].prefix, player.miscDyes[index].stack);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Forces a clients SSC to a specific value
-        /// </summary>
-        /// <param name="on">Whether SSC is to be set to on or not</param>
-        /// <param name="player"></param>
-        private void ForceClientSSC(bool on, TSPlayer player)
-        {
-
-            Main.ServerSideCharacter = on;
-            NetMessage.SendData((int)PacketTypes.WorldInfo, player.Index, -1, "");
-        }
-    
-        /// <summary>
-        /// Modifies a projectile based on the controller settings
-        /// </summary>
-        /// <param name="player">The player who owns the projectile</param>
-        /// <param name="ident">The index of the projectile in the array</param>
-        /// <param name="owner">The owner id of the projectile</param>
-        /// <param name="type">The type of the projectile</param>
-        /// <param name="dmg">The damage of the projectile (used to checking against things like hook projectiles)</param>
-        /// <param name="vel">The velocity of the projectile</param>
-        /// <param name="pos">The position of the projectile</param>
+        /// <param name="args">The GetDataHandlerArgs object containing the player who sent the packet and the
+        /// data in it</param>
         /// <returns></returns>
-        private bool ModifyProjectile(Player player, int ident, int owner, int type, int dmg, Vector2 vel, Vector2 pos)
+        private bool HandleEffectHeal(GetDataHandlerArgs args)
         {
-            Item weaponUsed = player.TshockPlayer.SelectedItem;
+            bool handled = false;
 
-            // Get weapon used if this is a new projectile or update to existing
-            if (Main.projectile[ident].active == false || Main.projectile[ident].owner == owner)
+            if (args.Player.TPlayer.hostile)
             {
-                weaponUsed = ProjectileMapper.DetermineWeaponUsed(type, player);
-            }
+                handled = true;
 
-            // Apply buffs to user if weapon buffs exist
-            if (Controller.Weapons.Count(p => p.netID == weaponUsed.netID && p.buffs.Count() > 0) > 0)
-            {
-                var proj = new Projectile();
-                proj.SetDefaults(type);
-
-                if (proj.ranged && dmg > 0)
+                if ((DateTime.Now - args.Player.LastHeal).TotalSeconds > Controller.Config.PotionHealCooldown)
                 {
-                    var weapon = Controller.Weapons.FirstOrDefault(p => p.netID == player.TshockPlayer.SelectedItem.netID);
-                    var weaponBuffs = weapon.buffs;
-                    foreach (var weaponBuff in weaponBuffs)
-                    {
-                        player.TshockPlayer.SetBuff(weaponBuff.netID, Convert.ToInt32((weaponBuff.milliseconds / 1000f) * 60), true);
-                    }
+                    args.Player.LastHeal = DateTime.Now;
+                    ApplyPlayerHeal(args.Player, Controller.Config.PotionHealAmt);
                 }
             }
 
-            // Load weapon modifications if this is a damaging projectile and the used weapon has modifications
-            var modification = Controller.Projectiles.FirstOrDefault(p => p.netID == type);
-            StorageTypes.Weapon weaponModification = null;
-            if (dmg > 0)
-            {
-                weaponModification = Controller.Weapons.FirstOrDefault(p => p.netID == player.TshockPlayer.SelectedItem.netID);
+            return handled;
+        }
+
+        /// <summary>
+        /// Strips any repeated buffs, then broadcast and stores them as a server normally would
+        /// </summary>
+        /// <param name="args">The GetDataHandlerArgs object containing the player who sent the packet and the
+        /// data in it</param>
+        private bool HandlePlayerBuffs(GetDataHandlerArgs args)
+        {
+            args.Data.ReadByte();
+
+            var buffs = new Dictionary<int, bool>();
+            int currentBuffType;
+            for (int buffTypeIndex = 0; buffTypeIndex < 22; buffTypeIndex++) {
+                args.Player.TPlayer.buffType[buffTypeIndex] = 0;
+
+                currentBuffType = args.Data.ReadByte();
+                if (!buffs.ContainsKey(currentBuffType))
+                {
+                    buffs.Add(currentBuffType, true);
+                    args.Player.TPlayer.buffType[buffTypeIndex] = currentBuffType;
+                    args.Player.TPlayer.buffTime[buffTypeIndex] = args.Player.TPlayer.buffType[buffTypeIndex] <= 0 ? 0 : 60;
+                }
             }
 
+            NetMessage.SendData(50, -1, args.Player.TPlayer.whoAmI, null, args.Player.TPlayer.whoAmI, 0.0f, 0.0f, 0.0f, 0, 0, 0);
 
-            // Apply modifications and update if they exist
-            if ((modification != null && modification.velocityRatio != 1f) || (weaponModification != null && weaponModification.velocityRatio != 1f))
+            return true;
+        }
+
+        /// <summary>
+        /// Applies a player heal for the given amount, not going over the players max hp
+        /// </summary>
+        /// <param name="player">The player who is healing</param>
+        /// <param name="healAmt">The amount they are healing for</param>
+        private void ApplyPlayerHeal(Player player, int healAmt)
+        {
+            player.TPlayer.statLife += healAmt;
+            if (player.TPlayer.statLife > player.TPlayer.statLifeMax2)
             {
-                var proj = Main.projectile[ident];
-                var velocity = vel;
-                if (modification != null)
-                {
-                    velocity *= modification.velocityRatio;
-                }
-
-                if (weaponModification != null)
-                {
-                    velocity *= weaponModification.velocityRatio;
-                }
-                proj.SetDefaults(type);
-                proj.damage = dmg;
-                proj.active = true;
-                proj.identity = ident;
-                proj.owner = owner;
-                proj.velocity = velocity;
-                proj.position = pos;
-                NetMessage.SendData((int)PacketTypes.ProjectileNew, -1, -1, "", ident);
-                return true;
+                player.TPlayer.statLife = player.TPlayer.statLifeMax2;
             }
 
-            return false;
+            player.ForceActiveHealth(player.TPlayer.statLife);
+        }
+
+        /// <summary>
+        /// Applies an amount of damage to player, updating their client and the server version of their health
+        /// </summary>
+        /// <param name="killer"></param>
+        /// <param name="victim"></param>
+        /// <param name="killersWeapon"></param>
+        /// <param name="dir"></param>
+        /// <param name="damage"></param>
+        /// <param name="realDamage"></param>
+        private void ApplyPlayerDamage(TSPlayer killer, Player victim, Item killersWeapon, int dir, int damage, int realDamage)
+        {
+            // Send the damage using the special method to avoid invincibility frames issue
+            SendPlayerDamage(victim.TshockPlayer, dir, damage);
+            Controller.RaisePlayerDamageEvent(this, new PlayerDamageEventArgs(killer, victim.TshockPlayer, killersWeapon, realDamage));
+            victim.TPlayer.statLife -= realDamage;
+
+            // Hurt the player to prevent instant regen activating
+            var savedHealth = victim.TPlayer.statLife;
+            victim.TPlayer.Hurt(new PlayerDeathReason(), damage, 0, true, false, false, 3);
+            victim.TPlayer.statLife = savedHealth;
+
+            if (victim.TPlayer.statLife <= 0)
+            {
+                victim.TshockPlayer.Dead = true;
+                victim.IsDead = true;
+                SendPlayerDeath(victim.TshockPlayer);
+
+                if (victim.TPlayer.hostile && Killers[victim.Index] != null)
+                {
+                    PlayerKillEventArgs killArgs = new PlayerKillEventArgs(Killers[victim.Index].Player, victim.TshockPlayer, Killers[victim.Index].Weapon);
+                    Controller.RaisePlayerKillEvent(this, killArgs);
+                    Killers[victim.Index] = null;
+                }
+                return;
+            }
+
+            victim.ForceActiveHealth(victim.TPlayer.statLife);
         }
 
         /// <summary>
@@ -600,6 +554,24 @@ namespace PvPController
             {
                 if (plr != null)
                     plr.SendRawData(playerDamage);
+            }
+        }
+
+        private void SendPlayerDeath(TSPlayer player)
+        {
+            byte[] playerDeath = new PacketFactory()
+                .SetType((short)PacketTypes.PlayerDeathV2)
+                .PackByte((byte)player.Index)
+                .PackByte(0)
+                .PackInt16(0)
+                .PackByte(0)
+                .PackByte(1)
+                .GetByteData();
+
+            foreach (var plr in TShock.Players)
+            {
+                if (plr != null)
+                    plr.SendRawData(playerDeath);
             }
         }
     }

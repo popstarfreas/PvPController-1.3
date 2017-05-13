@@ -12,7 +12,9 @@ namespace PvPController
         public bool HideDisallowedProjectiles;
         public bool BanTeleportItems;
         public bool BanPrefixedArmor;
-        public string redisHost;
+        public string RedisHost;
+        public int PotionHealAmt;
+        public int PotionHealCooldown;
         public DatabaseConfig Database;
 
         public Config(string path = null)
@@ -51,9 +53,10 @@ namespace PvPController
             HideDisallowedProjectiles = fileConfig.HideDisallowedProjectiles;
             BanTeleportItems = fileConfig.BanTeleportItems;
             BanPrefixedArmor = fileConfig.BanPrefixedArmor;
-            redisHost = fileConfig.redisHost;
+            RedisHost = fileConfig.RedisHost;
             Database = fileConfig.Database;
-
+            PotionHealAmt = fileConfig.PotionHealAmt;
+            PotionHealCooldown = fileConfig.PotionHealCooldown;
         }
 
         public void Write(string path)
@@ -76,7 +79,9 @@ namespace PvPController
             Database.Hostname = "localhost";
             Database.Port = 27017;
             Database.DBName = "pvpcontroller";
-            redisHost = "localhost";
+            RedisHost = "localhost";
+            PotionHealAmt = 150;
+            PotionHealCooldown = 60;
         }
     }
 }

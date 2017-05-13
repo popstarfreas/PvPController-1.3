@@ -83,7 +83,9 @@ namespace PvPController
             ServerApi.Hooks.ServerJoin.Register(this, ServerJoin);
             ServerApi.Hooks.ServerLeave.Register(this, ServerLeave);
             ServerApi.Hooks.ServerChat.Register(this, ServerChat);
+            ServerApi.Hooks.NetSendData.Register(this, SendData);
             Commands.ChatCommands.Add(new Command("pvpcontroller.reload", Reload, "pvpcreload"));
+            Commands.ChatCommands.Add(new Command("pvpcontroller.spectate", ToggleSpectate, "spectate"));
 
             /* Config Setup */
             ConfigPath = Path.Combine(TShock.SavePath, "PvPController.json");
@@ -95,7 +97,7 @@ namespace PvPController
             }
 
             /* Redis Setup */
-            Redis = ConnectionMultiplexer.Connect(Config.redisHost);
+            Redis = ConnectionMultiplexer.Connect(Config.RedisHost);
             ISubscriber sub = Redis.GetSubscriber();
             sub.SubscribeAsync("pvpcontroller-updates", (channel, message) =>
             {
@@ -123,8 +125,8 @@ namespace PvPController
         /// <param name="args"></param>
         private void ServerJoin(JoinEventArgs args)
         {
-            Players[args.Who] = new Player(TShock.Players[args.Who]);
-            Console.WriteLine("Player joined.");
+            Players[args.Who] = new Player(TShock.Players[args.Who], this);
+            Players[args.Who].IsDead = true;
         }
 
         /// <summary>
@@ -179,6 +181,77 @@ namespace PvPController
         internal void RaisePlayerDamageEvent(object sender, PlayerDamageEventArgs args)
         {
             OnPlayerDamage?.Invoke(sender, args);
+        }
+
+        /// <summary>
+        /// Toggles whether the player is spectating
+        /// </summary>
+        private void ToggleSpectate(CommandArgs args)
+        {
+            if (!args.TPlayer.hostile)
+            {
+                Players[args.Player.Index].Spectating = false;
+                return;
+            }
+
+            if (!Players[args.Player.Index].Spectating)
+            {
+                var secondsSinceSpectator = (DateTime.Now - Players[args.Player.Index].LastSpectating).TotalSeconds;
+                if (secondsSinceSpectator < 30)
+                {
+                    args.Player.SendErrorMessage($"You cannot enable Spectator Mode for another {Math.Truncate(30 - secondsSinceSpectator)} seconds.");
+                    return;
+                }
+            }
+
+            Players[args.Player.Index].Spectating = !Players[args.Player.Index].Spectating;
+
+            if (Players[args.Player.Index].Spectating)
+            {
+                Players[args.Player.Index].IsDead = true;
+                args.Player.TPlayer.dead = true;
+                FakePlayerDeath(args.Player);
+                TSPlayer.All.SendMessage($"{args.Player.Name} has become a Spectator.", new Microsoft.Xna.Framework.Color(187, 144, 212));
+            } else
+            {
+                Players[args.Player.Index].LastSpectating = DateTime.Now;
+                args.Player.Spawn();
+                TSPlayer.All.SendMessage($"{args.Player.Name} is now not a Spectator.", new Microsoft.Xna.Framework.Color(187, 144, 212));
+            }
+        }
+
+        /// <summary>
+        /// Fakes a player dying to everyone but themselves
+        /// </summary>
+        /// <param name="player">The player to die</param>
+        private void FakePlayerDeath(TSPlayer player)
+        {
+            byte[] playerDeath = new PacketFactory()
+                .SetType((short)PacketTypes.PlayerDeathV2)
+                .PackByte((byte)player.Index)
+                .PackByte(0)
+                .PackInt16(0)
+                .PackByte(0)
+                .PackByte(1)
+                .GetByteData();
+
+            foreach (var plr in TShock.Players)
+            {
+                if (plr != null && plr.Index != player.Index)
+                    plr.SendRawData(playerDeath);
+            }
+        }
+        
+        /// <summary>
+        /// Prevents spectators being revealed to people who just joined
+        /// </summary>
+        /// <param name="args"></param>
+        private void SendData(SendDataEventArgs args)
+        {
+            if (args.MsgId == PacketTypes.PlayerUpdate && Players[args.number] != null && Players[args.number].Spectating)
+            {
+                args.Handled = true;
+            }
         }
 
         /// <summary>

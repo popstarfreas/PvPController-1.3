@@ -6,7 +6,7 @@ namespace PvPController
     {
         public static Item DetermineWeaponUsed(int type, Player player)
         {
-            Item weaponUsed = player.TshockPlayer.SelectedItem;
+            Item weaponUsed = new Item();
             switch (type)
             {
                 case 150: // Nettle Burst (1)
@@ -73,6 +73,8 @@ namespace PvPController
                     }
 
                     player.ProjectileWeapon[type] = player.TshockPlayer.SelectedItem;
+
+                    weaponUsed = player.TshockPlayer.SelectedItem;
                     break;
             }
 
