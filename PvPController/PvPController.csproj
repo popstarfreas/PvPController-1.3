@@ -87,6 +87,7 @@
     <Compile Include="Database.cs" />
     <Compile Include="Config\DatabaseConfig.cs" />
     <Compile Include="DataHandlers.cs" />
+    <Compile Include="DataSender.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="NetworkText.cs" />
     <Compile Include="Player.cs" />

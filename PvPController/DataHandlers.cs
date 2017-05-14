@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Terraria;
 using TShockAPI;
-using Terraria.DataStructures;
 using Microsoft.Xna.Framework;
 
 namespace PvPController
@@ -467,112 +466,6 @@ namespace PvPController
             NetMessage.SendData(50, -1, args.Player.TPlayer.whoAmI, null, args.Player.TPlayer.whoAmI, 0.0f, 0.0f, 0.0f, 0, 0, 0);
 
             return true;
-        }
-
-        /// <summary>
-        /// Applies a player heal for the given amount, not going over the players max hp
-        /// </summary>
-        /// <param name="player">The player who is healing</param>
-        /// <param name="healAmt">The amount they are healing for</param>
-        private void ApplyPlayerHeal(Player player, int healAmt)
-        {
-            player.TPlayer.statLife += healAmt;
-            if (player.TPlayer.statLife > player.TPlayer.statLifeMax2)
-            {
-                player.TPlayer.statLife = player.TPlayer.statLifeMax2;
-            }
-
-            player.ForceActiveHealth(player.TPlayer.statLife);
-        }
-
-        /// <summary>
-        /// Applies an amount of damage to player, updating their client and the server version of their health
-        /// </summary>
-        /// <param name="killer"></param>
-        /// <param name="victim"></param>
-        /// <param name="killersWeapon"></param>
-        /// <param name="dir"></param>
-        /// <param name="damage"></param>
-        /// <param name="realDamage"></param>
-        private void ApplyPlayerDamage(TSPlayer killer, Player victim, Item killersWeapon, int dir, int damage, int realDamage)
-        {
-            // Send the damage using the special method to avoid invincibility frames issue
-            SendPlayerDamage(victim.TshockPlayer, dir, damage);
-            Controller.RaisePlayerDamageEvent(this, new PlayerDamageEventArgs(killer, victim.TshockPlayer, killersWeapon, realDamage));
-            victim.TPlayer.statLife -= realDamage;
-
-            // Hurt the player to prevent instant regen activating
-            var savedHealth = victim.TPlayer.statLife;
-            victim.TPlayer.Hurt(new PlayerDeathReason(), damage, 0, true, false, false, 3);
-            victim.TPlayer.statLife = savedHealth;
-
-            if (victim.TPlayer.statLife <= 0)
-            {
-                victim.TshockPlayer.Dead = true;
-                victim.IsDead = true;
-                SendPlayerDeath(victim.TshockPlayer);
-
-                if (victim.TPlayer.hostile && Killers[victim.Index] != null)
-                {
-                    PlayerKillEventArgs killArgs = new PlayerKillEventArgs(Killers[victim.Index].Player, victim.TshockPlayer, Killers[victim.Index].Weapon);
-                    Controller.RaisePlayerKillEvent(this, killArgs);
-                    Killers[victim.Index] = null;
-                }
-                return;
-            }
-
-            victim.ForceActiveHealth(victim.TPlayer.statLife);
-        }
-
-        /// <summary>
-        /// Sends a raw packet built from base values to both fix the invincibility frames
-        /// and provide a way to modify incoming damage.
-        /// </summary>
-        /// <param name="player">The TSPlayer object of the player to get hurt</param>
-        /// <param name="hitDirection">The hit direction (left or right, -1 or 1)</param>
-        /// <param name="damage">The amount of damage to deal to the player</param>
-        private void SendPlayerDamage(TSPlayer player, int hitDirection, int damage)
-        {
-            // This flag permutation gives low invinc frames for proper client
-            // sync
-            BitsByte flags = new BitsByte();
-            flags[0] = true; // PVP
-            flags[1] = false; // Crit
-            flags[2] = false; // Cooldown -1
-            flags[3] = false; // Cooldown +1
-            byte[] playerDamage = new PacketFactory()
-                .SetType((short)PacketTypes.PlayerHurtV2)
-                .PackByte((byte)player.Index)
-                .PackByte(0)
-                .PackInt16((short)damage)
-                .PackByte((byte)hitDirection)
-                .PackByte(flags)
-                .PackByte(3)
-                .GetByteData();
-
-            foreach (var plr in TShock.Players)
-            {
-                if (plr != null)
-                    plr.SendRawData(playerDamage);
-            }
-        }
-
-        private void SendPlayerDeath(TSPlayer player)
-        {
-            byte[] playerDeath = new PacketFactory()
-                .SetType((short)PacketTypes.PlayerDeathV2)
-                .PackByte((byte)player.Index)
-                .PackByte(0)
-                .PackInt16(0)
-                .PackByte(0)
-                .PackByte(1)
-                .GetByteData();
-
-            foreach (var plr in TShock.Players)
-            {
-                if (plr != null)
-                    plr.SendRawData(playerDeath);
-            }
         }
     }
 }
