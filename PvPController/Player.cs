@@ -243,19 +243,34 @@ namespace PvPController
         /// </summary>
         /// <param name="player">The player who is healing</param>
         /// <param name="healAmt">The amount they are healing for</param>
-        private void ApplyPlayerHeal(Player player, int healAmt)
+        public void Heal(int healAmt)
         {
-            player.TPlayer.statLife += healAmt;
-            if (player.TPlayer.statLife > player.TPlayer.statLifeMax2)
+            TPlayer.statLife += healAmt;
+            if (TPlayer.statLife > TPlayer.statLifeMax2)
             {
-                player.TPlayer.statLife = player.TPlayer.statLifeMax2;
+                TPlayer.statLife = TPlayer.statLifeMax2;
             }
 
-            Controller.DataSender.SendClientHealth(player, player.TPlayer.statLife);
+            Controller.DataSender.SendClientHealth(this, TPlayer.statLife);
         }
 
         /// <summary>
-        /// Applies an amount of damage to player, updating their client and the server version of their health
+        /// Updates this players health, keeping it within the bounds of their max health
+        /// </summary>
+        /// <param name="health">The amount to set this players health to</param>
+        public void SetActiveHealth(int health)
+        {
+            TPlayer.statLife = health;
+            if (TPlayer.statLife > TPlayer.statLifeMax2)
+            {
+                TPlayer.statLife = TPlayer.statLifeMax2;
+            }
+
+            Controller.DataSender.SendClientHealth(this, TPlayer.statLife);
+        }
+
+        /// <summary>
+        /// Applies an amount of damage to this player, updating their client and the server version of their health
         /// </summary>
         /// <param name="killer"></param>
         /// <param name="victim"></param>
@@ -263,34 +278,34 @@ namespace PvPController
         /// <param name="dir"></param>
         /// <param name="damage"></param>
         /// <param name="realDamage"></param>
-        private void ApplyPlayerDamage(TSPlayer killer, Player victim, Item killersWeapon, int dir, int damage, int realDamage)
+        public void ApplyPlayerDamage(Player killer, Item killersWeapon, int dir, int damage, int realDamage)
         {
             // Send the damage using the special method to avoid invincibility frames issue
-            Controller.DataSender.SendPlayerDamage(victim.TshockPlayer, dir, damage);
-            Controller.RaisePlayerDamageEvent(this, new PlayerDamageEventArgs(killer, victim.TshockPlayer, killersWeapon, realDamage));
-            victim.TPlayer.statLife -= realDamage;
+            Controller.DataSender.SendPlayerDamage(TshockPlayer, dir, damage);
+            Controller.RaisePlayerDamageEvent(this, new PlayerDamageEventArgs(killer.TshockPlayer, TshockPlayer, killersWeapon, realDamage));
+            TPlayer.statLife -= realDamage;
 
             // Hurt the player to prevent instant regen activating
-            var savedHealth = victim.TPlayer.statLife;
-            victim.TPlayer.Hurt(new PlayerDeathReason(), damage, 0, true, false, false, 3);
-            victim.TPlayer.statLife = savedHealth;
+            var savedHealth = TPlayer.statLife;
+            TPlayer.Hurt(new PlayerDeathReason(), damage, 0, true, false, false, 3);
+            TPlayer.statLife = savedHealth;
 
-            if (victim.TPlayer.statLife <= 0)
+            if (TPlayer.statLife <= 0)
             {
-                victim.TshockPlayer.Dead = true;
-                victim.IsDead = true;
-                Controller.DataSender.SendPlayerDeath(victim.TshockPlayer);
+                TshockPlayer.Dead = true;
+                IsDead = true;
+                Controller.DataSender.SendPlayerDeath(TshockPlayer);
 
-                if (victim.TPlayer.hostile && victim.Killer != null)
+                if (TPlayer.hostile && Killer != null)
                 {
-                    PlayerKillEventArgs killArgs = new PlayerKillEventArgs(victim.Killer.Player, victim.TshockPlayer, victim.Killer.Weapon);
+                    PlayerKillEventArgs killArgs = new PlayerKillEventArgs(Killer.Player, TshockPlayer, Killer.Weapon);
                     Controller.RaisePlayerKillEvent(this, killArgs);
-                    victim.Killer = null;
+                    Killer = null;
                 }
                 return;
             }
 
-            Controller.DataSender.SendClientHealth(victim, victim.TPlayer.statLife);
+            Controller.DataSender.SendClientHealth(this, TPlayer.statLife);
         }
     }
 }

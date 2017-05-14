@@ -309,7 +309,7 @@ namespace PvPController
                     msgColor = new Color(162, 0, 255);
                     NetMessage.SendData((int)PacketTypes.CreateCombatText, index, -1, NetworkText.FromLiteral($"{realDamage}"), (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
 
-                    ApplyPlayerDamage(args.Player.TshockPlayer, Controller.Players[playerId], weapon, dir, (int)safeDamage, realDamage);
+                    Controller.Players[playerId].ApplyPlayerDamage(args.Player, weapon, dir, (int)safeDamage, realDamage);
                     NetMessage.SendData((int)PacketTypes.PlayerHp, -1, playerId, "", playerId);
                     return true;
                 }
@@ -322,7 +322,7 @@ namespace PvPController
 
             // Send Damage and Damage Text
             NetMessage.SendData((int)PacketTypes.CreateCombatText, index, -1, NetworkText.FromLiteral($"{realDamage}"), (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
-            ApplyPlayerDamage(args.Player.TshockPlayer, Controller.Players[playerId], weapon, dir, (int)safeDamage, realDamage);
+            Controller.Players[playerId].ApplyPlayerDamage(args.Player, weapon, dir, (int)safeDamage, realDamage);
             Killers[playerId] = new PlayerKiller(args.Player.TshockPlayer, weapon);
             NetMessage.SendData((int)PacketTypes.PlayerHp, -1, playerId, "", playerId);
             return true;
@@ -382,8 +382,7 @@ namespace PvPController
             {
                 args.Player.TPlayer.statLifeMax = 500;
                 args.Player.TPlayer.statLifeMax2 = 600;
-                args.Player.TPlayer.statLife = args.Player.TPlayer.statLifeMax2;
-                args.Player.ForceActiveHealth(args.Player.TPlayer.statLife);
+                args.Player.SetActiveHealth(args.Player.TPlayer.statLifeMax2);
             }
 
             args.Player.IsDead = false;
@@ -410,7 +409,10 @@ namespace PvPController
             // Is armor
             if (Controller.Config.BanPrefixedArmor && prefix > 0 && slotId >= 59 && slotId <= 61)
             {
-                args.Player.ForceItem(slotId, 0, netId, 1);
+                Item fixedArmorItem = new Item();
+                fixedArmorItem.prefix = 0;
+                fixedArmorItem.stack = 1;
+                Controller.DataSender.SendSlotUpdate(args.Player, slotId, fixedArmorItem);
             }
 
             return false;
@@ -433,7 +435,7 @@ namespace PvPController
                 if ((DateTime.Now - args.Player.LastHeal).TotalSeconds > Controller.Config.PotionHealCooldown)
                 {
                     args.Player.LastHeal = DateTime.Now;
-                    ApplyPlayerHeal(args.Player, Controller.Config.PotionHealAmt);
+                    args.Player.Heal(Controller.Config.PotionHealAmt);
                 }
             }
 
