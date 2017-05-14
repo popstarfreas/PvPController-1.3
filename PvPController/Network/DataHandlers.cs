@@ -6,6 +6,7 @@ using System.Linq;
 using Terraria;
 using TShockAPI;
 using Microsoft.Xna.Framework;
+using PvPController.Network;
 
 namespace PvPController
 {
@@ -268,7 +269,7 @@ namespace PvPController
                 weapon.owner = args.Player.Index;
             }
 
-            float safeDamage = Main.player[args.Player.Index].GetWeaponDamage(weapon);
+            double safeDamage = Main.player[args.Player.Index].GetWeaponDamage(weapon);
             Color msgColor;
             int realDamage;
 
@@ -289,29 +290,15 @@ namespace PvPController
 
                 if (projectileModificationExists || weaponModificationExists)
                 {
-                    // Get then apply modification to damage
-                    if (projectileModificationExists)
-                    {
-                        var projectileModification = Controller.Projectiles.FirstOrDefault(p => p.netID == sourceProjectileType);
-                        safeDamage = Convert.ToInt16(safeDamage * projectileModification.damageRatio);
-                    }
-
-                    if (weaponModificationExists)
-                    {
-                        var weaponModification = Controller.Weapons.FirstOrDefault(p => p.netID == weapon.netID);
-                        safeDamage = Convert.ToInt16(safeDamage * weaponModification.damageRatio);
-                    }
-                    
-                    realDamage = (int)Main.CalculatePlayerDamage((int)safeDamage, Main.player[playerId].statDefense);
-                    realDamage = (int)Math.Round(realDamage * (1 - Main.player[playerId].endurance));
-
-                    // Send the combat text
-                    msgColor = new Color(162, 0, 255);
-                    NetMessage.SendData((int)PacketTypes.CreateCombatText, index, -1, NetworkText.FromLiteral($"{realDamage}"), (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
-
-                    Controller.Players[playerId].ApplyPlayerDamage(args.Player, weapon, dir, (int)safeDamage, realDamage);
-                    NetMessage.SendData((int)PacketTypes.PlayerHp, -1, playerId, "", playerId);
-                    return true;
+                    HandleModifyDamage(new ModifiedDamageArgs(
+                        projectileModificationExists: projectileModificationExists,
+                        weaponModificationExists: weaponModificationExists,
+                        sourceProjectileType: sourceProjectileType,
+                        safeDamage: safeDamage,
+                        weapon: weapon,
+                        player: args.Player,
+                        victim: Controller.Players[playerId]
+                    ));
                 }
             }
 
@@ -326,6 +313,37 @@ namespace PvPController
             Killers[playerId] = new PlayerKiller(args.Player.TshockPlayer, weapon);
             NetMessage.SendData((int)PacketTypes.PlayerHp, -1, playerId, "", playerId);
             return true;
+        }
+
+        /// <summary>
+        /// Handles when damage is to be modified from the weapons original damage
+        /// </summary>
+        /// <param name="args"></param>
+        private void HandleModifyDamage(ModifiedDamageArgs args)
+        {
+            int realDamage;
+            // Get then apply modification to damage
+            if (args.ProjectileModificationExists)
+            {
+                var projectileModification = Controller.Projectiles.FirstOrDefault(p => p.netID == args.SourceProjectileType);
+                args.SafeDamage = Convert.ToInt16(args.SafeDamage * projectileModification.damageRatio);
+            }
+
+            if (args.WeaponModificationExists)
+            {
+                var weaponModification = Controller.Weapons.FirstOrDefault(p => p.netID == args.Weapon.netID);
+                args.SafeDamage = Convert.ToInt16(args.SafeDamage * weaponModification.damageRatio);
+            }
+
+            realDamage = (int)Main.CalculatePlayerDamage((int)args.SafeDamage, args.Victim.TPlayer.statDefense);
+            realDamage = (int)Math.Round(realDamage * (1 - args.Victim.TPlayer.endurance));
+
+            // Send the combat text
+            Color msgColor = new Color(162, 0, 255);
+            NetMessage.SendData((int)PacketTypes.CreateCombatText, args.Attacker.Index, -1, NetworkText.FromLiteral($"{realDamage}"), (int)msgColor.PackedValue, args.Victim.TPlayer.position.X, args.Victim.TPlayer.position.Y - 32);
+
+            args.Victim.ApplyPlayerDamage(args.Attacker, args.Weapon, 0, (int)args.SafeDamage, realDamage);
+            NetMessage.SendData((int)PacketTypes.PlayerHp, -1, args.Victim.Index, "", args.Victim.Index);
         }
 
         /// <summary>
