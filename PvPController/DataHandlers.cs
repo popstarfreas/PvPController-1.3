@@ -406,7 +406,7 @@ namespace PvPController
             int prefix = args.Data.ReadByte();
             int netId = args.Data.ReadInt16();
 
-            // Is armor
+            // Is prefixed armor armor
             if (Controller.Config.BanPrefixedArmor && prefix > 0 && slotId >= 59 && slotId <= 61)
             {
                 Item fixedArmorItem = new Item();
