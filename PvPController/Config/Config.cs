@@ -9,7 +9,6 @@ namespace PvPController
     {
         public int[] BannedArmorPieces;
         public int DamageDisableSeconds;
-        public bool HideDisallowedProjectiles;
         public bool BanTeleportItems;
         public bool BanPrefixedArmor;
         public string RedisHost;
@@ -50,7 +49,6 @@ namespace PvPController
             var fileConfig = JsonConvert.DeserializeObject<Config>(File.ReadAllText(path));
             BannedArmorPieces = fileConfig.BannedArmorPieces;
             DamageDisableSeconds = fileConfig.DamageDisableSeconds;
-            HideDisallowedProjectiles = fileConfig.HideDisallowedProjectiles;
             BanTeleportItems = fileConfig.BanTeleportItems;
             BanPrefixedArmor = fileConfig.BanPrefixedArmor;
             RedisHost = fileConfig.RedisHost;
@@ -73,7 +71,6 @@ namespace PvPController
         {
             BannedArmorPieces = new int[] { };
             DamageDisableSeconds = 12;
-            HideDisallowedProjectiles = true;
             BanTeleportItems = true;
             BanPrefixedArmor = true;
             Database.Hostname = "localhost";

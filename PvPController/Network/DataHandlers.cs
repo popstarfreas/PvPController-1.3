@@ -93,18 +93,28 @@ namespace PvPController
             var vel = new Vector2(args.Data.ReadSingle(), args.Data.ReadSingle());
             var knockback = args.Data.ReadSingle();
             var dmg = args.Data.ReadInt16();
-            var owner = args.Data.ReadInt8();
+            var owner = args.Data.ReadByte();
             var type = args.Data.ReadInt16();
-            var bits = (BitsByte)args.Data.ReadInt8();
+            var aiFlags = (BitsByte)args.Data.ReadByte();
+            float ai0 = 0;
+            float ai1 = 0;
+            if (aiFlags[0])
+            {
+                ai0 = args.Data.ReadSingle();
+            }
+            if (aiFlags[1])
+            {
+                ai1 = args.Data.ReadSingle();
+            }
             owner = (byte)args.Player.Index;
             float[] ai = new float[Projectile.maxAI];
-
+            
             bool handled = false;
             if (args.Player.TPlayer.hostile)
             {
                 if (Controller.Projectiles.Count(p => p.netID == type && p.banned) > 0)
                 {
-                    args.Player.RemoveProjectileAndTellIsIneffective(Controller.Config.HideDisallowedProjectiles, ident);
+                    args.Player.RemoveProjectileAndTellIsIneffective(ident);
                 }
                 else
                 {
@@ -115,7 +125,17 @@ namespace PvPController
                     }
                     else
                     {
-                        handled = args.Player.ModifyProjectile(ident, owner, type, dmg, vel, pos);
+                        var projArgs = new ProjectileArgs(
+                            ident: ident,
+                            owner: owner,
+                            type: type,
+                            damage: dmg,
+                            velocity: vel,
+                            position: pos,
+                            ai0: ai0,
+                            ai1: ai1
+                         );
+                        handled = args.Player.ModifyProjectile(projArgs);
                     }
                 }
             }

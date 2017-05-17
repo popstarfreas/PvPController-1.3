@@ -91,11 +91,14 @@
     <Compile Include="Main.cs" />
     <Compile Include="NetworkText.cs" />
     <Compile Include="Network\ModifiedDamageArgs.cs" />
+    <Compile Include="Network\ProjectileArgs.cs" />
     <Compile Include="Player.cs" />
     <Compile Include="PlayerDamageEventArgs.cs" />
     <Compile Include="PlayerKillEventArgs.cs" />
     <Compile Include="PlayerKiller.cs" />
     <Compile Include="ProjectileMapper.cs" />
+    <Compile Include="ProjectileUtils.cs" />
+    <Compile Include="WeaponUseTimeMapper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StorageTypes\Buff.cs" />
     <Compile Include="StorageTypes\EquipItem.cs" />

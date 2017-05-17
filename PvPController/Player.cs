@@ -4,6 +4,7 @@ using System;
 using Microsoft.Xna.Framework;
 using System.Linq;
 using Terraria.DataStructures;
+using PvPController.Network;
 
 namespace PvPController
 {
@@ -77,6 +78,26 @@ namespace PvPController
             get;
         }
 
+        /// <summary>
+        /// Prevents use time activating if > 0
+        /// </summary>
+        internal int UseTimePrevent
+        {
+            set;
+            get;
+        }
+
+        internal bool UseTimePreventActive
+        {
+            set;
+            get;
+        }
+
+        /// <summary>
+        /// The amount to allow a player to cheat by to prevent legit people being prevented
+        /// </summary>
+        private int UseTimeBoundary = 20;
+
         private PvPController Controller;
 
         public Player(TSPlayer player, PvPController controller)
@@ -87,6 +108,8 @@ namespace PvPController
             LastHeal = DateTime.Now.AddSeconds(-60);
             LastSpectating = DateTime.Now.AddSeconds(-30);
             Spectating = false;
+            UseTimePrevent = 0;
+            UseTimePreventActive = false;
         }
 
         /**
@@ -106,33 +129,34 @@ namespace PvPController
         /// <summary>
         /// Removes a players projectile
         /// </summary>
-        /// <param name="projectileIndex">The index of the projectile</param>
-        public void RemoveProjectile(int projectileIndex)
+        /// <param name="projectileId">The index of the projectile</param>
+        public void RemoveProjectile(int projectileId)
         {
-            var proj = Main.projectile[projectileIndex];
-            proj.active = false;
-            proj.type = 0;
-            TSPlayer.All.SendData(PacketTypes.ProjectileDestroy, "", projectileIndex);
+            var projectileNew = new PacketFactory()
+                .SetType((int)PacketTypes.ProjectileNew)
+                .PackInt16((short)projectileId)
+                .PackSingle(0) // Position
+                .PackSingle(0)
+                .PackSingle(0) // Velocity
+                .PackSingle(0)
+                .PackSingle(0) // Knockback
+                .PackInt16(0) // Damage
+                .PackByte((byte)TPlayer.whoAmI) // Owner
+                .PackInt16((short)0) // Type
+                .PackByte(0) // AI
+                .GetByteData();
+
+            TSPlayer.All.SendRawData(projectileNew);
         }
 
         /// <summary>
         /// Removes a projectile and tells the player that it does not work.
         /// </summary>
         /// <param name="hideDisallowedProjectiles">Whether or not to hide the projectile</param>
-        /// <param name="projectileIndex">The index of the projectile</param>
-        public void RemoveProjectileAndTellIsIneffective(bool hideDisallowedProjectiles, int projectileIndex)
+        /// <param name="projectileId">The index of the projectile</param>
+        public void RemoveProjectileAndTellIsIneffective(int projectileId)
         {
-            var proj = Main.projectile[projectileIndex];
-            proj.active = false;
-            proj.type = 0;
-            if (hideDisallowedProjectiles)
-            {
-                TSPlayer.All.SendData(PacketTypes.ProjectileDestroy, "", projectileIndex);
-            }
-            proj.owner = 255;
-            proj.active = false;
-            proj.type = 0;
-            TSPlayer.All.SendData(PacketTypes.ProjectileNew, "", projectileIndex);
+            RemoveProjectile(projectileId);
 
             if ((DateTime.Now - LastMessage).TotalSeconds > 2)
             {
@@ -169,26 +193,32 @@ namespace PvPController
         /// <summary>
         /// Modifies a projectile based on the controller settings
         /// </summary>
-        /// <param name="player">The player who owns the projectile</param>
-        /// <param name="ident">The index of the projectile in the array</param>
-        /// <param name="owner">The owner id of the projectile</param>
-        /// <param name="type">The type of the projectile</param>
-        /// <param name="dmg">The damage of the projectile (used to checking against things like hook projectiles)</param>
-        /// <param name="vel">The velocity of the projectile</param>
-        /// <param name="pos">The position of the projectile</param>
+        /// <param name="args">The information about the projectile</param>
         /// <returns></returns>
-        internal bool ModifyProjectile(int ident, int owner, int type, int dmg, Vector2 vel, Vector2 pos)
+        internal bool ModifyProjectile(ProjectileArgs args)
         {
-            Item weaponUsed = TshockPlayer.SelectedItem;
-            weaponUsed = ProjectileMapper.DetermineWeaponUsed(type, this);
-
+            int existingIndex = ProjectileUtils.FindProjectileIndex(args.Ident, TPlayer.whoAmI);
             var proj = new Projectile();
-            proj.SetDefaults(type);
+            proj.SetDefaults(args.Type);
+            
+            Item weaponUsed = TshockPlayer.SelectedItem;
+            weaponUsed = ProjectileMapper.DetermineWeaponUsed(args.Type, this);
+
+            /*if (TPlayer.itemTime > 0 && !exists)
+            {
+                TSPlayer.All.SendInfoMessage($"{weaponUsed.name}'s item time still active at {TPlayer.itemTime}");
+                return true;
+            }
+
+            if (!exists)
+            {
+                TPlayer.itemTime = WeaponUseTimeMapper.DetermineUseTime(weapon: weaponUsed, player: this) - UseTimeBoundary;
+            }*/
 
             // Apply buffs to user if weapon buffs exist
             if (Controller.Weapons.Count(p => p.netID == weaponUsed.netID && p.buffs.Count() > 0) > 0)
             {
-                if (proj.ranged && dmg > 0)
+                if (proj.ranged && args.Damage > 0)
                 {
                     var weapon = Controller.Weapons.FirstOrDefault(p => p.netID == TshockPlayer.SelectedItem.netID);
                     var weaponBuffs = weapon.buffs;
@@ -200,9 +230,9 @@ namespace PvPController
             }
 
             // Load weapon modifications if this is a damaging projectile and the used weapon has modifications
-            var modification = Controller.Projectiles.FirstOrDefault(p => p.netID == type);
+            var modification = Controller.Projectiles.FirstOrDefault(p => p.netID == args.Type);
             StorageTypes.Weapon weaponModification = null;
-            if (dmg > 0)
+            if (args.Damage > 0)
             {
                 weaponModification = Controller.Weapons.FirstOrDefault(p => p.netID == TshockPlayer.SelectedItem.netID);
             }
@@ -211,25 +241,31 @@ namespace PvPController
             // Apply modifications and update if they exist
             if ((modification != null && modification.velocityRatio != 1f) || (weaponModification != null && weaponModification.velocityRatio != 1f))
             {
-                proj = Main.projectile[ident];
-                var velocity = vel;
-                if (modification != null)
+                int freeIndex = ProjectileUtils.FindFreeIndex();
+
+                if (freeIndex > -1)
                 {
-                    velocity *= modification.velocityRatio;
+                    proj = Main.projectile[freeIndex];
+                    var velocity = args.Velocity;
+                    if (modification != null)
+                    {
+                        velocity *= modification.velocityRatio;
+                    }
+
+                    if (weaponModification != null)
+                    {
+                        velocity *= weaponModification.velocityRatio;
+                    }
+                    proj.SetDefaults(args.Type);
+                    proj.damage = args.Damage;
+                    proj.active = true;
+                    proj.identity = args.Ident;
+                    proj.owner = args.Owner;
+                    proj.velocity = velocity;
+                    proj.position = args.Position;
+                    NetMessage.SendData((int)PacketTypes.ProjectileNew, -1, -1, NetworkText.FromLiteral(""), freeIndex);
                 }
 
-                if (weaponModification != null)
-                {
-                    velocity *= weaponModification.velocityRatio;
-                }
-                proj.SetDefaults(type);
-                proj.damage = dmg;
-                proj.active = true;
-                proj.identity = ident;
-                proj.owner = owner;
-                proj.velocity = velocity;
-                proj.position = pos;
-                NetMessage.SendData((int)PacketTypes.ProjectileNew, -1, -1, NetworkText.FromLiteral(""), ident);
                 return true;
             }
 
