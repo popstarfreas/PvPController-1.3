@@ -9,6 +9,29 @@ namespace PvPController
             Item weaponUsed = new Item();
             switch (type)
             {
+                case 3:   // Grappling Hook
+                case 32:  // Ivy Whip
+                case 73:  // Dual Hook (Blue)
+                case 74:  // Dual Hook (Red)
+                case 165: // Web Slinger
+                case 230: // Amethyst Hook
+                case 231: // Topaz Hook
+                case 232: // Sapphire Hook
+                case 233: // Emerald Hook
+                case 234: // Ruby Hook
+                case 235: // Diamond Hook
+                case 256: // Skeletron Hand Hook
+                case 315: // Bat Hook
+                case 322: // Spooky Hook
+                case 331: // Candy Cane Hook
+                case 332: // Christmas Hook
+                case 372: // Fish Hook
+                case 396: // Slime Hook
+                case 403: // Minecart Hook
+                case 446: // Anti-Gravity Hook
+                    HandleHook(ref weaponUsed, type, player);
+                    break;
+
                 case 150: // Nettle Burst (1)
                 case 151: // Nettle Burst (2)
                 case 152: // Nettle Burst (End)
@@ -79,6 +102,11 @@ namespace PvPController
             }
 
             return weaponUsed;
+        }
+
+        private static void HandleHook(ref Item weaponUsed, int type, Player player)
+        {
+            weaponUsed.SetDefaults(0);
         }
 
         private static void HandleNettleBurst(ref Item weaponUsed, int type, Player player)
