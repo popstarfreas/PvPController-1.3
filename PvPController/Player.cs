@@ -211,16 +211,10 @@ namespace PvPController
             Item weaponUsed = TshockPlayer.SelectedItem;
             weaponUsed = ProjectileMapper.DetermineWeaponUsed(args.Type, this);
 
-            /*if (TPlayer.itemTime > 0 && !exists)
+            if (existingIndex > -1)
             {
-                TSPlayer.All.SendInfoMessage($"{weaponUsed.name}'s item time still active at {TPlayer.itemTime}");
-                return true;
+                return false;
             }
-
-            if (!exists)
-            {
-                TPlayer.itemTime = WeaponUseTimeMapper.DetermineUseTime(weapon: weaponUsed, player: this) - UseTimeBoundary;
-            }*/
 
             // Apply buffs to user if weapon buffs exist
             if (Controller.Weapons.Count(p => p.netID == weaponUsed.netID && p.buffs.Count() > 0) > 0)
