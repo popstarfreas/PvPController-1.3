@@ -132,6 +132,12 @@ namespace PvPController
         /// <param name="projectileId">The index of the projectile</param>
         public void RemoveProjectile(int projectileId)
         {
+            var projectileDestroy = new PacketFactory()
+                .SetType((int)PacketTypes.ProjectileDestroy)
+                .PackInt16((short)projectileId)
+                .PackByte((byte)TPlayer.whoAmI) // Owner
+                .GetByteData();
+
             var projectileNew = new PacketFactory()
                 .SetType((int)PacketTypes.ProjectileNew)
                 .PackInt16((short)projectileId)
@@ -146,7 +152,8 @@ namespace PvPController
                 .PackByte(0) // AI
                 .GetByteData();
 
-            TSPlayer.All.SendRawData(projectileNew);
+            TshockPlayer.SendRawData(projectileDestroy);
+            TshockPlayer.SendRawData(projectileNew);
         }
 
         /// <summary>
