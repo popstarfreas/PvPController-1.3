@@ -7,7 +7,7 @@ namespace PvPController
         public static bool IsBow(Item item)
         {
             bool bow = false;
-            switch(item.name)
+            switch(item.Name)
             {
                 case "Wooden Bow":
                 case "Boreal Wood Bow":

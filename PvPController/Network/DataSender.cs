@@ -1,5 +1,6 @@
 ﻿using TShockAPI;
 using Terraria;
+using Terraria.Localization;
 
 namespace PvPController
 {
@@ -16,7 +17,7 @@ namespace PvPController
         {
             ForceClientSSC(player, true);
             player.TPlayer.statLife = health;
-            NetMessage.SendData((int)PacketTypes.PlayerHp, -1, -1, "", player.Index);
+            NetMessage.SendData((int)PacketTypes.PlayerHp, -1, -1, NetworkText.Empty, player.Index);
             ForceClientSSC(player, false);
         }
 
@@ -52,7 +53,7 @@ namespace PvPController
                 if (player.TPlayer.inventory[slotId].netID != 0)
                 {
                     player.TPlayer.inventory[slotId] = newItem;
-                    NetMessage.SendData(5, -1, -1, NetworkText.FromLiteral(player.TPlayer.inventory[slotId].name), player.TPlayer.whoAmI, slotId, player.TPlayer.inventory[slotId].prefix, player.TPlayer.inventory[slotId].stack);
+                    NetMessage.SendData(5, -1, -1, NetworkText.Empty, player.TPlayer.whoAmI, slotId, player.TPlayer.inventory[slotId].prefix, player.TPlayer.inventory[slotId].stack);
                 }
             }
             else if (slotId < NetItem.InventorySlots + NetItem.ArmorSlots)
@@ -64,7 +65,7 @@ namespace PvPController
                 if (player.TPlayer.armor[index].netID != 0)
                 {
                     player.TPlayer.armor[index] = newItem;
-                    NetMessage.SendData(5, -1, -1, NetworkText.FromLiteral(player.TPlayer.armor[index].name), player.TPlayer.whoAmI, slotId, player.TPlayer.armor[index].prefix, player.TPlayer.armor[index].stack);
+                    NetMessage.SendData(5, -1, -1, NetworkText.Empty, player.TPlayer.whoAmI, slotId, player.TPlayer.armor[index].prefix, player.TPlayer.armor[index].stack);
                 }
             }
             else if (slotId < NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots)
@@ -76,7 +77,7 @@ namespace PvPController
                 if (player.TPlayer.dye[index].netID != 0)
                 {
                     player.TPlayer.dye[index] = newItem;
-                    NetMessage.SendData(5, -1, -1, NetworkText.FromLiteral(player.TPlayer.dye[index].name), player.TPlayer.whoAmI, slotId, player.TPlayer.dye[index].prefix, player.TPlayer.dye[index].stack);
+                    NetMessage.SendData(5, -1, -1, NetworkText.Empty, player.TPlayer.whoAmI, slotId, player.TPlayer.dye[index].prefix, player.TPlayer.dye[index].stack);
                 }
             }
             else if (slotId <
@@ -89,7 +90,7 @@ namespace PvPController
                 if (player.TPlayer.miscEquips[index].netID != 0)
                 {
                     player.TPlayer.miscEquips[index] = newItem;
-                    NetMessage.SendData(5, -1, -1, NetworkText.FromLiteral(player.TPlayer.miscEquips[index].name), player.TPlayer.whoAmI, slotId, player.TPlayer.miscEquips[index].prefix, player.TPlayer.miscEquips[index].stack);
+                    NetMessage.SendData(5, -1, -1, NetworkText.Empty, player.TPlayer.whoAmI, slotId, player.TPlayer.miscEquips[index].prefix, player.TPlayer.miscEquips[index].stack);
                 }
             }
             else if (slotId <
@@ -104,7 +105,7 @@ namespace PvPController
                 if (player.TPlayer.miscDyes[index].netID != 0)
                 {
                     player.TPlayer.miscDyes[index] = newItem;
-                    NetMessage.SendData(5, -1, -1, NetworkText.FromLiteral(player.TPlayer.miscDyes[index].name), player.TPlayer.whoAmI, slotId, player.TPlayer.miscDyes[index].prefix, player.TPlayer.miscDyes[index].stack);
+                    NetMessage.SendData(5, -1, -1, NetworkText.Empty, player.TPlayer.whoAmI, slotId, player.TPlayer.miscDyes[index].prefix, player.TPlayer.miscDyes[index].stack);
                 }
             }
         }

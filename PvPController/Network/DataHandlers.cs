@@ -7,6 +7,8 @@ using Terraria;
 using TShockAPI;
 using Microsoft.Xna.Framework;
 using PvPController.Network;
+using Terraria.Localization;
+using PvPController.Controllers;
 
 namespace PvPController
 {
@@ -319,6 +321,7 @@ namespace PvPController
                         player: args.Player,
                         victim: Controller.Players[playerId]
                     ));
+                    return true;
                 }
             }
 
@@ -328,10 +331,16 @@ namespace PvPController
             realDamage = (int)Math.Round(realDamage * (1 - Main.player[playerId].endurance));
 
             // Send Damage and Damage Text
-            NetMessage.SendData((int)PacketTypes.CreateCombatText, index, -1, NetworkText.FromLiteral($"{realDamage}"), (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
+            NetMessage.SendData(119, index, -1, NetworkText.FromLiteral($"{realDamage}"), (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
             Controller.Players[playerId].ApplyPlayerDamage(args.Player, weapon, dir, (int)safeDamage, realDamage);
             Killers[playerId] = new PlayerKiller(args.Player.TshockPlayer, weapon);
-            NetMessage.SendData((int)PacketTypes.PlayerHp, -1, playerId, "", playerId);
+            NetMessage.SendData((int)PacketTypes.PlayerHp, -1, playerId, NetworkText.Empty, playerId);
+
+            // Update spectating time so they cannot simply hide from their attacker
+            if (Controller.Players[playerId].LastSpectating < DateTime.UtcNow.AddSeconds(-15))
+            {
+                Controller.Players[playerId].LastSpectating = DateTime.UtcNow.AddSeconds(-15);
+            }
             return true;
         }
 
@@ -360,10 +369,10 @@ namespace PvPController
 
             // Send the combat text
             Color msgColor = new Color(162, 0, 255);
-            NetMessage.SendData((int)PacketTypes.CreateCombatText, args.Attacker.Index, -1, NetworkText.FromLiteral($"{realDamage}"), (int)msgColor.PackedValue, args.Victim.TPlayer.position.X, args.Victim.TPlayer.position.Y - 32);
+            NetMessage.SendData(119, args.Attacker.Index, -1, NetworkText.FromLiteral($"{realDamage}"), (int)msgColor.PackedValue, args.Victim.TPlayer.position.X, args.Victim.TPlayer.position.Y - 32);
 
             args.Victim.ApplyPlayerDamage(args.Attacker, args.Weapon, 0, (int)args.SafeDamage, realDamage);
-            NetMessage.SendData((int)PacketTypes.PlayerHp, -1, args.Victim.Index, "", args.Victim.Index);
+            NetMessage.SendData((int)PacketTypes.PlayerHp, -1, args.Victim.Index, NetworkText.Empty, args.Victim.Index);
         }
 
         /// <summary>
@@ -441,9 +450,9 @@ namespace PvPController
             args.Data.ReadByte();
             int slotId = args.Data.ReadByte();
             args.Data.ReadInt16();
-            int prefix = args.Data.ReadByte();
+            byte prefix = (byte)args.Data.ReadByte();
             int netId = args.Data.ReadInt16();
-
+            
             // Is prefixed armor armor
             if (Controller.Config.BanPrefixedArmor && prefix > 0 && slotId >= 59 && slotId <= 61)
             {
@@ -453,7 +462,23 @@ namespace PvPController
                 Controller.DataSender.SendSlotUpdate(args.Player, slotId, fixedArmorItem);
             }
 
-            return false;
+            bool impossibleEquip = false;
+
+            if (Controller.Config.PreventImpossibleEquipment && netId != 0)
+            {
+                if (slotId >= 59 && slotId <= 66)
+                {
+                    Item newEquip = new Item();
+                    newEquip.SetDefaults(netId);
+                    newEquip.prefix = prefix;
+                    if (EquipController.ShouldPreventEquip(args.Player, newEquip, slotId))
+                    {
+                        impossibleEquip = true;
+                        args.Player.TPlayer.armor[slotId - 59].SetDefaults(0);
+                    }
+                }
+            }
+            return impossibleEquip;
         }
 
         /// <summary>

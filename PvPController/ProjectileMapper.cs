@@ -32,6 +32,11 @@ namespace PvPController
                     HandleHook(ref weaponUsed, type, player);
                     break;
 
+                case 7: // Vilethorn (1)
+                case 8: // Vilethorn (End)
+                    HandleVilethorn(ref weaponUsed, type, player);
+                    break;
+
                 case 150: // Nettle Burst (1)
                 case 151: // Nettle Burst (2)
                 case 152: // Nettle Burst (End)
@@ -80,6 +85,11 @@ namespace PvPController
                 case 413: // Toxic Cloud (3)
                     HandleToxicCloud(ref weaponUsed, type, player);
                     break;
+
+                case 493: // Crystal Vile Shard (1)
+                case 494: // Crystal Vile Shard (End)
+                    HandleCrystalVileShard(ref weaponUsed, type, player);
+                    break;
                     
                 case 522: // Crystal Charge 
                     HandleCrystalCharge(ref weaponUsed, type, player);
@@ -107,6 +117,13 @@ namespace PvPController
         private static void HandleHook(ref Item weaponUsed, int type, Player player)
         {
             weaponUsed.SetDefaults(0);
+            player.ProjectileWeapon[type] = weaponUsed;
+        }
+
+        private static void HandleVilethorn(ref Item weaponUsed, int type, Player player)
+        {
+            weaponUsed.SetDefaults(64);
+            player.ProjectileWeapon[type] = weaponUsed;
         }
 
         private static void HandleNettleBurst(ref Item weaponUsed, int type, Player player)
@@ -166,6 +183,12 @@ namespace PvPController
         private static void HandleToxicCloud(ref Item weaponUsed, int type, Player player)
         {
             weaponUsed.SetDefaults(3105);
+            player.ProjectileWeapon[type] = weaponUsed;
+        }
+
+        private static void HandleCrystalVileShard(ref Item weaponUsed, int type, Player player)
+        {
+            weaponUsed.SetDefaults(3051);
             player.ProjectileWeapon[type] = weaponUsed;
         }
 

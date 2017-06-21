@@ -10,6 +10,7 @@ using System.Linq;
 using StackExchange.Redis;
 using PvPController.StorageTypes;
 using Newtonsoft.Json.Linq;
+using PvPController.Controllers;
 
 namespace PvPController
 {
@@ -87,17 +88,35 @@ namespace PvPController
             ServerApi.Hooks.NetSendData.Register(this, SendData);
             Commands.ChatCommands.Add(new Command("pvpcontroller.reload", Reload, "pvpcreload"));
             Commands.ChatCommands.Add(new Command("pvpcontroller.spectate", ToggleSpectate, "spectate"));
-
-            /* Config Setup */
-            ConfigPath = Path.Combine(TShock.SavePath, "PvPController.json");
-            Config = new Config(ConfigPath);
+            SetupConfig();
 
             foreach (var netID in Config.BannedArmorPieces)
             {
                 EquipItems.Add(new EquipItem(netID, true));
             }
 
-            /* Redis Setup */
+            SetupRedis();
+            GetDataHandler = new GetDataHandlers(this);
+            DataSender = new DataSender();
+            SetupDatabase();
+            SetupUpdateTimer();
+            SetupDuplicateEquipPrevention();
+        }
+
+        /// <summary>
+        /// Sets up the Config class using the file if it exists
+        /// </summary>
+        private void SetupConfig()
+        {
+            ConfigPath = Path.Combine(TShock.SavePath, "PvPController.json");
+            Config = new Config(ConfigPath);
+        }
+
+        /// <summary>
+        /// Connects to the redis server for modification updates
+        /// </summary>
+        private void SetupRedis()
+        {
             Redis = ConnectionMultiplexer.Connect(Config.RedisHost);
             ISubscriber sub = Redis.GetSubscriber();
             sub.SubscribeAsync("pvpcontroller-updates", (channel, message) =>
@@ -105,17 +124,24 @@ namespace PvPController
                 Console.WriteLine(message);
                 parseUpdate(message);
             });
+        }
 
-            GetDataHandler = new GetDataHandlers(this);
-            DataSender = new DataSender();
-
-            /* Database setup */
+        /// <summary>
+        /// Connects to the database and loads all the required information
+        /// </summary>
+        private void SetupDatabase()
+        {
             Database = new Database(Config);
             Weapons = Database.GetWeapons();
             Projectiles = Database.GetProjectiles();
             Database.addWeaponBuffs(Weapons);
+        }
 
-            /* Update Timer running every second */
+        /// <summary>
+        /// Starts the update timer
+        /// </summary>
+        private void SetupUpdateTimer()
+        {
             OnSecondUpdate = new Timer(1000);
             OnSecondUpdate.Enabled = true;
             OnSecondUpdate.Elapsed += SecondUpdate;
@@ -129,6 +155,15 @@ namespace PvPController
         {
             Players[args.Who] = new Player(TShock.Players[args.Who], this);
             Players[args.Who].IsDead = true;
+
+            for (int i = 0; i < (int)(NetItem.ArmorSlots/2); i++)
+            {
+                if (Players[args.Who].TPlayer.armor[i].netID != 0
+                    && EquipController.ShouldPreventEquip(Players[args.Who], Players[args.Who].TPlayer.armor[i], 59 + i))
+                {
+                    Players[args.Who].TPlayer.armor[i].SetDefaults(0);
+                }
+            }
         }
 
         /// <summary>
@@ -159,6 +194,7 @@ namespace PvPController
                         {
                             player.TshockPlayer.SendData(PacketTypes.Teleport, "", 0, player.Index, player.TshockPlayer.LastNetPosition.X, player.TshockPlayer.LastNetPosition.Y);
                             player.TshockPlayer.SetBuff(149, 60);
+                            args.Handled = true;
                         }
                     }
                 }
@@ -382,7 +418,7 @@ namespace PvPController
                                         player.TPlayer.hostile = false;
                                         player.TshockPlayer.SendData(PacketTypes.TogglePvp, "", player.Index, 0f, 0f, 0f, 0);
                                         player.TshockPlayer.Teleport(Main.spawnTileX * 16, (Main.spawnTileY - 3) * 16);
-                                        player.TshockPlayer.SendMessage($"TELEPORT WARNING:{type} {player.TPlayer.armor[slot].name} is not allowed for PvP!", 217, 255, 0);
+                                        player.TshockPlayer.SendMessage($"TELEPORT WARNING:{type} {player.TPlayer.armor[slot].Name} is not allowed for PvP!", 217, 255, 0);
                                         break;
                                     }
                                 }
@@ -436,6 +472,45 @@ namespace PvPController
                 }
             }
         }
+
+        #region temporaryDuplicateEquip
+        private void SetupDuplicateEquipPrevention()
+        {
+            EquipController.Controllers.Add(this.ShouldPreventEquip);
+        }
+
+        private bool ShouldPreventEquip(Player player, Item equip, int slotId)
+        {
+            bool shouldPreventEquip = false;
+            for (int i = 0; i < (int)(NetItem.ArmorSlots / 2); i++)
+            {
+                if (i != slotId - NetItem.InventorySlots && player.TPlayer.armor[i].netID == equip.netID)
+                {
+                    shouldPreventEquip = true;
+                    break;
+                }
+            }
+
+            if (!shouldPreventEquip)
+            {
+                if (equip.headSlot > -1)
+                {
+                    shouldPreventEquip = slotId != 59;
+                }
+                else if (equip.bodySlot > -1)
+                {
+                    shouldPreventEquip = slotId != 60;
+                }
+                else if (equip.legSlot > -1)
+                {
+                    shouldPreventEquip = slotId != 61;
+                }
+            }
+
+            return shouldPreventEquip;
+        }
+
+        #endregion
 
         /* Updates the config object with the existing config file, or creates a new
          * one if it doesn't exist.

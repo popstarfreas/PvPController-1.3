@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using System.Linq;
 using Terraria.DataStructures;
 using PvPController.Network;
+using Terraria.Localization;
 
 namespace PvPController
 {
@@ -235,7 +236,7 @@ namespace PvPController
             StorageTypes.Weapon weaponModification = null;
             if (args.Damage > 0)
             {
-                weaponModification = Controller.Weapons.FirstOrDefault(p => p.netID == TshockPlayer.SelectedItem.netID);
+                weaponModification = Controller.Weapons.FirstOrDefault(p => p.netID == TshockPlayer.SelectedItem.netID);    
             }
 
 
