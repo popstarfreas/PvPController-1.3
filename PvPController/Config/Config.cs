@@ -15,6 +15,7 @@ namespace PvPController
         public int PotionHealAmt;
         public int PotionHealCooldown;
         public DatabaseConfig Database;
+        public bool PreventImpossibleEquipment;
 
         public Config(string path = null)
         {
@@ -55,6 +56,7 @@ namespace PvPController
             Database = fileConfig.Database;
             PotionHealAmt = fileConfig.PotionHealAmt;
             PotionHealCooldown = fileConfig.PotionHealCooldown;
+            PreventImpossibleEquipment = fileConfig.PreventImpossibleEquipment;
         }
 
         public void Write(string path)
@@ -79,6 +81,7 @@ namespace PvPController
             RedisHost = "localhost";
             PotionHealAmt = 150;
             PotionHealCooldown = 60;
+            PreventImpossibleEquipment = true;
         }
     }
 }
