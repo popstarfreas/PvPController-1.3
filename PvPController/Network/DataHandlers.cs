@@ -162,19 +162,14 @@ namespace PvPController
             var pos = new Vector2(args.Data.ReadSingle(), args.Data.ReadSingle());
             var vel = Vector2.Zero;
             
-            if (control[5] && Controller.Weapons.Count(p => p.netID == args.Player.TshockPlayer.SelectedItem.netID && p.banned) > 0 && args.Player.TPlayer.hostile)
+            if (control[5]
+                && Controller.Weapons.Count(p => p.netID == args.Player.TshockPlayer.SelectedItem.netID && p.banned) > 0
+                && args.Player.TPlayer.hostile)
             {
                 args.Player.TellWeaponIsIneffective();
             }
 
-            bool handled = false;
-
-            if (args.Player.IsDead)
-            {
-                handled = true;
-            }
-
-            return handled;
+            return args.Player.IsDead;
         }
 
         /// <summary>
