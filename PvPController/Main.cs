@@ -4,12 +4,9 @@ using Terraria;
 using TerrariaApi.Server;
 using TShockAPI;
 using System.Timers;
-using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
-using StackExchange.Redis;
 using PvPController.StorageTypes;
-using Newtonsoft.Json.Linq;
 using PvPController.Controllers;
 
 namespace PvPController
@@ -31,12 +28,14 @@ namespace PvPController
         private string ConfigPath;
         public Config Config;
         public Database Database;
-        public ConnectionMultiplexer Redis;
+        private Synchroniser Synchroniser;
 
         public List<Weapon> Weapons = new List<Weapon>();
         public List<StorageTypes.Projectile> Projectiles = new List<StorageTypes.Projectile>();
         public List<EquipItem> EquipItems = new List<EquipItem>();
         public Player[] Players = new Player[256];
+
+        public static PvPController ActiveInstance;
 
         public override string Author
         {
@@ -74,6 +73,7 @@ namespace PvPController
             : base(game)
         {
             Order = 6;
+            ActiveInstance = this;
         }
         
         /// <summary>
@@ -95,7 +95,7 @@ namespace PvPController
                 EquipItems.Add(new EquipItem(netID, true));
             }
 
-            SetupRedis();
+            Synchroniser = new Synchroniser(this);
             GetDataHandler = new GetDataHandlers(this);
             DataSender = new DataSender();
             SetupDatabase();
@@ -112,19 +112,6 @@ namespace PvPController
             Config = new Config(ConfigPath);
         }
 
-        /// <summary>
-        /// Connects to the redis server for modification updates
-        /// </summary>
-        private void SetupRedis()
-        {
-            Redis = ConnectionMultiplexer.Connect(Config.RedisHost);
-            ISubscriber sub = Redis.GetSubscriber();
-            sub.SubscribeAsync("pvpcontroller-updates", (channel, message) =>
-            {
-                Console.WriteLine(message);
-                parseUpdate(message);
-            });
-        }
 
         /// <summary>
         /// Connects to the database and loads all the required information
@@ -293,93 +280,6 @@ namespace PvPController
         }
 
         /// <summary>
-        /// Parses updates from the redis channel. These changes will be made to the existing
-        /// local lists of Weapons and Projectiles, the internal state of the DB should have
-        /// already been updated by the time this comes through (or is in the process of).
-        /// </summary>
-        /// <param name="message">The raw message from the subscribed channel</param>
-        void parseUpdate(string message)
-        {
-            dynamic update = JObject.Parse(message);
-            string objectType = update.objectType;
-            Console.WriteLine(objectType);
-            float value = update.value;
-
-            switch(objectType)
-            {
-                case "weapon":
-                    handleWeaponUpdate(update);
-                    break;
-                case "projectile":
-                    handleProjectileUpdate(update);
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// Handles an update for an existing weapon
-        /// </summary>
-        /// <param name="update">The update object containing the netID, changeType and value</param>
-        void handleWeaponUpdate(dynamic update)
-        {
-            string changeType = update.changeType;
-            int netID = update.netID;
-            var weapon = Weapons.FirstOrDefault(p => p.netID == netID);
-
-            /* The weapon was not found in the list, therefore it cannot be used
-                * since we do not have the other values of the object.*/
-            if (weapon == null)
-            {
-                Console.WriteLine($"{netID} unusable");
-                return;
-            }
-
-            switch (changeType)
-            {
-                case "damageRatio":
-                    weapon.damageRatio = Convert.ToSingle(update.value);
-                    break;
-                case "velocityRatio":
-                    weapon.velocityRatio = Convert.ToSingle(update.value);
-                    break;
-                case "banned":
-                    weapon.banned = Convert.ToBoolean(update.value);
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// Handles an update for an existing weapon
-        /// </summary>
-        /// <param name="update">The update object containing the netID, changeType and value</param>
-        void handleProjectileUpdate(dynamic update)
-        {
-            string changeType = update.changeType;
-            int netID = update.netID;
-            var projectile = Projectiles.FirstOrDefault(p => p.netID == netID);
-            
-            /* The weapon was not found in the list, therefore it cannot be used
-             * since we do not have the other values of the object.*/
-            if (projectile == null)
-            {
-                return;
-            }
-
-            switch (changeType)
-            {
-                case "damageRatio":
-                    projectile.damageRatio = Convert.ToSingle(update.value);
-                    break;
-                case "velocityRatio":
-                    projectile.velocityRatio = Convert.ToSingle(update.value);
-                    break;
-                case "banned":
-                    projectile.banned = Convert.ToBoolean(update.value);
-                    break;
-            }
-        }
-
-        /// <summary>
         /// Checks if any of the players are using a banned accessory or armor item
         /// and will prevent any damage for a specified amount of time and teleport
         /// them to spawn if so.
@@ -400,27 +300,22 @@ namespace PvPController
                             if (player.TPlayer.blackBelt)
                             {
                                 player.TPlayer.hostile = false;
-                                player.TshockPlayer.SendData(PacketTypes.TogglePvp, "", player.Index, 0f, 0f, 0f, 0);
-                                player.TshockPlayer.Teleport(Main.spawnTileX * 16, (Main.spawnTileY - 3) * 16);
-                                player.TshockPlayer.SendMessage("TELEPORT WARNING: Master Ninja Gear & Blackbelt are not allowed for PvP!", 217, 255, 0);
+                                player.TshockPlayer.SetBuff(149, 60);
+                                player.TshockPlayer.SendMessage("ACCESSORY VIOLATION: Master Ninja Gear & Blackbelt are not allowed for PvP!", 217, 255, 0);
                             }
                             else
                             {
                                 // Armor and Accessories (active) are 0-9
-                                for (int slot = 0; slot <= 9; slot++)
-                                {
-                                    bool bannedArmor = EquipItems.Count(p => p.netID == player.TPlayer.armor[slot].netID && p.banned) > 0;
-                                    bool bannedAccessory = EquipItems.Count(p => p.netID == player.TPlayer.armor[slot].netID && p.banned) > 0;
+                                var bannedArmorAndAccessories = player.TPlayer.armor.Where(p => p != null && EquipItems.Count(e => e.netID == p.netID) > 0);
+                                var item = bannedArmorAndAccessories.FirstOrDefault();
 
-                                    if (bannedArmor || bannedAccessory)
-                                    {
-                                        string type = bannedArmor ? "Armor" : "Accessory";
-                                        player.TPlayer.hostile = false;
-                                        player.TshockPlayer.SendData(PacketTypes.TogglePvp, "", player.Index, 0f, 0f, 0f, 0);
-                                        player.TshockPlayer.Teleport(Main.spawnTileX * 16, (Main.spawnTileY - 3) * 16);
-                                        player.TshockPlayer.SendMessage($"TELEPORT WARNING:{type} {player.TPlayer.armor[slot].Name} is not allowed for PvP!", 217, 255, 0);
-                                        break;
-                                    }
+                                if (item != null)
+                                {
+                                    bool isArmor = item.headSlot > -1 || item.bodySlot > -1 || item.legSlot > -1;
+                                    string type = isArmor ? "Armor" : "Accessory";
+                                    player.TPlayer.hostile = false;
+                                    player.TshockPlayer.SetBuff(149, 60);
+                                    player.TshockPlayer.SendMessage($"ACCESSORY VIOLATION: {type} {item.Name} is not allowed for PvP!", 217, 255, 0);
                                 }
                             }
                             

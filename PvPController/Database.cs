@@ -37,7 +37,7 @@ namespace PvPController
                 var weapon = new Weapon(item["NetID"].AsInt32,
                                         Convert.ToSingle(item["CurrentDamage"]) / Convert.ToSingle(item["BaseDamage"]),
                                         Convert.ToSingle(item["CurrentVelocity"]) / Convert.ToSingle(item["BaseVelocity"]),
-                                        Convert.ToBoolean(item["Banned"]));
+                                        Convert.ToBoolean(item["Banned"]), item["MinDamage"].AsInt32, item["MaxDamage"].AsInt32);
                 weaponList.Add(weapon);
             }
 

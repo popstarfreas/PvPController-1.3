@@ -99,6 +99,18 @@ namespace PvPController
                     player.ProjectileWeapon[type] = player.LastActiveBow;
                     break;
 
+                case 567:
+                case 568:
+                case 569:
+                case 570:
+                case 571:
+                    HandleSporeSac(ref weaponUsed, type, player);
+                    break;
+
+                case 656:
+                    HandleAncientStorm(ref weaponUsed, type, player);
+                    break;
+
                 default:
                     if (Utils.IsBow(player.TshockPlayer.SelectedItem))
                     {
@@ -195,6 +207,18 @@ namespace PvPController
         private static void HandleCrystalCharge(ref Item weaponUsed, int type, Player player)
         {
             weaponUsed.SetDefaults(3209);
+            player.ProjectileWeapon[type] = weaponUsed;
+        }
+
+        private static void HandleSporeSac(ref Item weaponUsed, int type, Player player)
+        {
+            weaponUsed.SetDefaults(3336);
+            player.ProjectileWeapon[type] = weaponUsed;
+        }
+
+        private static void HandleAncientStorm(ref Item weaponUsed, int type, Player player)
+        {
+            weaponUsed.SetDefaults(0);
             player.ProjectileWeapon[type] = weaponUsed;
         }
     }

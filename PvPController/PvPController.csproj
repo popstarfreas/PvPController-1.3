@@ -87,6 +87,7 @@
     <Compile Include="Config\Config.cs" />
     <Compile Include="Controllers\DamageController.cs" />
     <Compile Include="Controllers\EquipController.cs" />
+    <Compile Include="DamageUtils.cs" />
     <Compile Include="Database.cs" />
     <Compile Include="Config\DatabaseConfig.cs" />
     <Compile Include="Network\DataHandlers.cs" />
@@ -100,6 +101,7 @@
     <Compile Include="PlayerKiller.cs" />
     <Compile Include="ProjectileMapper.cs" />
     <Compile Include="ProjectileUtils.cs" />
+    <Compile Include="Synchroniser.cs" />
     <Compile Include="WeaponUseTimeMapper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StorageTypes\Buff.cs" />

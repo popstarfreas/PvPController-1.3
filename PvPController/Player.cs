@@ -73,12 +73,6 @@ namespace PvPController
             get;
         }
 
-        public PlayerKiller Killer
-        {
-            set;
-            get;
-        }
-
         /// <summary>
         /// Prevents use time activating if > 0
         /// </summary>
@@ -316,11 +310,11 @@ namespace PvPController
         /// <param name="dir"></param>
         /// <param name="damage"></param>
         /// <param name="realDamage"></param>
-        public void ApplyPlayerDamage(Player killer, Item killersWeapon, int dir, int damage, int realDamage)
+        public void ApplyPlayerDamage(PlayerKiller killer, Item killersWeapon, int dir, int damage, int realDamage)
         {
             // Send the damage using the special method to avoid invincibility frames issue
             Controller.DataSender.SendPlayerDamage(TshockPlayer, dir, damage);
-            Controller.RaisePlayerDamageEvent(this, new PlayerDamageEventArgs(killer.TshockPlayer, TshockPlayer, killersWeapon, realDamage));
+            Controller.RaisePlayerDamageEvent(this, new PlayerDamageEventArgs(killer.Player, TshockPlayer, killersWeapon, realDamage));
             TPlayer.statLife -= realDamage;
 
             // Hurt the player to prevent instant regen activating
@@ -334,11 +328,10 @@ namespace PvPController
                 IsDead = true;
                 Controller.DataSender.SendPlayerDeath(TshockPlayer);
 
-                if (TPlayer.hostile && Killer != null)
+                if (TPlayer.hostile && killer != null)
                 {
-                    PlayerKillEventArgs killArgs = new PlayerKillEventArgs(Killer.Player, TshockPlayer, Killer.Weapon);
+                    PlayerKillEventArgs killArgs = new PlayerKillEventArgs(killer.Player, TshockPlayer, killer.Weapon);
                     Controller.RaisePlayerKillEvent(this, killArgs);
-                    Killer = null;
                 }
                 return;
             }

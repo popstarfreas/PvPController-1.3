@@ -111,14 +111,17 @@ namespace PvPController
         }
 
         /// <summary>
-        /// Forces a clients SSC to a specific value
+        /// Forces a clients SSC to a specific value if tshock config set to false
         /// </summary>
         /// <param name="on">Whether SSC is to be set to on or not</param>
         /// <param name="player"></param>
         internal void ForceClientSSC(Player player, bool on)
         {
-            Main.ServerSideCharacter = on;
-            NetMessage.SendData((int)PacketTypes.WorldInfo, player.Index, -1, NetworkText.FromLiteral(""));
+            if (!TShock.ServerSideCharacterConfig.Enabled)
+            {
+                Main.ServerSideCharacter = on;
+                NetMessage.SendData((int)PacketTypes.WorldInfo, player.Index, -1, NetworkText.FromLiteral(""));
+            }
         }
 
         /// <summary>

@@ -29,7 +29,6 @@ namespace PvPController
     /* Contains the handlers for certain packets received by the server */
     internal class GetDataHandlers
     {
-        private PlayerKiller[] Killers = new PlayerKiller[255];
         private static Dictionary<PacketTypes, GetDataHandlerDelegate> _getDataHandlerDelegates;
         private PvPController Controller;
 
@@ -50,6 +49,7 @@ namespace PvPController
                 { PacketTypes.TeleportationPotion, HandlePlayerTeleportPotion },
                 { PacketTypes.PlayerSpawn, HandlePlayerSpawn },
                 { PacketTypes.PlayerBuff, HandlePlayerBuffs },
+                { PacketTypes.PlayerAddBuff, HandlePlayerBuff },
                 { PacketTypes.PlayerSlot, HandleInventoryUpdate },
                 { PacketTypes.EffectHeal, HandleEffectHeal }
             };
@@ -286,12 +286,7 @@ namespace PvPController
                 weapon.owner = args.Player.Index;
             }
 
-            double safeDamage = Main.player[args.Player.Index].GetWeaponDamage(weapon);
-            Color msgColor;
-            int realDamage;
-
-            var proj = new Projectile();
-            proj.SetDefaults(sourceProjectileType);
+            double internalDamage = Main.player[args.Player.Index].GetWeaponDamage(weapon);
 
             // Check whether the source of damage is banned
             if (Controller.Weapons.Count(p => p.netID == weapon.netID && p.banned) > 0 || Controller.Projectiles.Count(p => p.netID == sourceProjectileType && p.banned) > 0)
@@ -299,36 +294,15 @@ namespace PvPController
                 args.Player.TshockPlayer.SendData(PacketTypes.PlayerHp, "", playerId);
                 return true;
             }
-            else
-            {
-                // Get the weapon and whether a modification exists
-                var weaponModificationExists = Controller.Weapons.Count(p => p.netID == weapon.netID && p.damageRatio != 1f) > 0;
-                var projectileModificationExists = Controller.Projectiles.Count(p => p.netID == sourceProjectileType && p.damageRatio != 1f) > 0;
 
-                if (projectileModificationExists || weaponModificationExists)
-                {
-                    HandleModifyDamage(new ModifiedDamageArgs(
-                        projectileModificationExists: projectileModificationExists,
-                        weaponModificationExists: weaponModificationExists,
-                        sourceProjectileType: sourceProjectileType,
-                        safeDamage: safeDamage,
-                        weapon: weapon,
-                        player: args.Player,
-                        victim: Controller.Players[playerId]
-                    ));
-                    return true;
-                }
-            }
-
-            // Send the damage number to show the player the real damage
-            msgColor = new Color(162, 0, 255);
-            realDamage = (int)Main.CalculatePlayerDamage((int)safeDamage, Main.player[playerId].statDefense);
-            realDamage = (int)Math.Round(realDamage * (1 - Main.player[playerId].endurance));
-
+            internalDamage = DamageController.DecideDamage(args.Player, Controller.Players[playerId], weapon, sourceProjectileType, internalDamage);
+            
             // Send Damage and Damage Text
+            int realDamage = (int)Math.Round(DamageUtils.GetRealDamageFromInternalDamage(Main.player[playerId], internalDamage));
+            Color msgColor = new Color(162, 0, 255);
             NetMessage.SendData(119, index, -1, NetworkText.FromLiteral($"{realDamage}"), (int)msgColor.PackedValue, Main.player[playerId].position.X, Main.player[playerId].position.Y - 32);
-            Controller.Players[playerId].ApplyPlayerDamage(args.Player, weapon, dir, (int)safeDamage, realDamage);
-            Killers[playerId] = new PlayerKiller(args.Player.TshockPlayer, weapon);
+            var killer = new PlayerKiller(args.Player.TshockPlayer, weapon);
+            Controller.Players[playerId].ApplyPlayerDamage(killer, weapon, dir, (int)internalDamage, realDamage);
             NetMessage.SendData((int)PacketTypes.PlayerHp, -1, playerId, NetworkText.Empty, playerId);
 
             // Update spectating time so they cannot simply hide from their attacker
@@ -337,37 +311,6 @@ namespace PvPController
                 Controller.Players[playerId].LastSpectating = DateTime.UtcNow.AddSeconds(-15);
             }
             return true;
-        }
-
-        /// <summary>
-        /// Handles when damage is to be modified from the weapons original damage
-        /// </summary>
-        /// <param name="args"></param>
-        private void HandleModifyDamage(ModifiedDamageArgs args)
-        {
-            int realDamage;
-            // Get then apply modification to damage
-            if (args.ProjectileModificationExists)
-            {
-                var projectileModification = Controller.Projectiles.FirstOrDefault(p => p.netID == args.SourceProjectileType);
-                args.SafeDamage = Convert.ToInt16(args.SafeDamage * projectileModification.damageRatio);
-            }
-
-            if (args.WeaponModificationExists)
-            {
-                var weaponModification = Controller.Weapons.FirstOrDefault(p => p.netID == args.Weapon.netID);
-                args.SafeDamage = Convert.ToInt16(args.SafeDamage * weaponModification.damageRatio);
-            }
-
-            realDamage = (int)Main.CalculatePlayerDamage((int)args.SafeDamage, args.Victim.TPlayer.statDefense);
-            realDamage = (int)Math.Round(realDamage * (1 - args.Victim.TPlayer.endurance));
-
-            // Send the combat text
-            Color msgColor = new Color(162, 0, 255);
-            NetMessage.SendData(119, args.Attacker.Index, -1, NetworkText.FromLiteral($"{realDamage}"), (int)msgColor.PackedValue, args.Victim.TPlayer.position.X, args.Victim.TPlayer.position.Y - 32);
-
-            args.Victim.ApplyPlayerDamage(args.Attacker, args.Weapon, 0, (int)args.SafeDamage, realDamage);
-            NetMessage.SendData((int)PacketTypes.PlayerHp, -1, args.Victim.Index, NetworkText.Empty, args.Victim.Index);
         }
 
         /// <summary>
@@ -498,6 +441,25 @@ namespace PvPController
             }
 
             return handled;
+        }
+
+        /// <summary>
+        /// Checks for any illegal buffs and stones anyone with them
+        /// </summary>
+        /// <param name="args">The GetDataHandlerArgs object containing the player who sent the packet and the
+        /// data in it</param>
+        /// <returns></returns>
+        private bool HandlePlayerBuff(GetDataHandlerArgs args)
+        {
+            args.Data.ReadByte();
+            var buffId = args.Data.ReadByte();
+            if (buffId == 130)
+            {
+                args.Player.TshockPlayer.SetBuff(149, 60);
+                args.Player.TshockPlayer.SendMessage($"BUFF VIOLATION: Slimy Saddle is not allowed in PvP!", 217, 255, 0);
+            }
+
+            return false;
         }
 
         /// <summary>
