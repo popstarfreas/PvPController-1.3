@@ -49,7 +49,6 @@ namespace PvPController
                 { PacketTypes.TeleportationPotion, HandlePlayerTeleportPotion },
                 { PacketTypes.PlayerSpawn, HandlePlayerSpawn },
                 { PacketTypes.PlayerBuff, HandlePlayerBuffs },
-                { PacketTypes.PlayerAddBuff, HandlePlayerBuff },
                 { PacketTypes.PlayerSlot, HandleInventoryUpdate },
                 { PacketTypes.EffectHeal, HandleEffectHeal }
             };
@@ -444,25 +443,6 @@ namespace PvPController
         }
 
         /// <summary>
-        /// Checks for any illegal buffs and stones anyone with them
-        /// </summary>
-        /// <param name="args">The GetDataHandlerArgs object containing the player who sent the packet and the
-        /// data in it</param>
-        /// <returns></returns>
-        private bool HandlePlayerBuff(GetDataHandlerArgs args)
-        {
-            args.Data.ReadByte();
-            var buffId = args.Data.ReadByte();
-            if (buffId == 130)
-            {
-                args.Player.TshockPlayer.SetBuff(149, 60);
-                args.Player.TshockPlayer.SendMessage($"BUFF VIOLATION: Slimy Saddle is not allowed in PvP!", 217, 255, 0);
-            }
-
-            return false;
-        }
-
-        /// <summary>
         /// Strips any repeated buffs, then broadcast and stores them as a server normally would
         /// </summary>
         /// <param name="args">The GetDataHandlerArgs object containing the player who sent the packet and the
@@ -477,7 +457,12 @@ namespace PvPController
                 args.Player.TPlayer.buffType[buffTypeIndex] = 0;
 
                 currentBuffType = args.Data.ReadByte();
-                if (!buffs.ContainsKey(currentBuffType))
+                if (currentBuffType == 130)
+                {
+                    args.Player.TshockPlayer.SetBuff(149, 60);
+                    args.Player.TshockPlayer.SendMessage($"BUFF VIOLATION: Slimy Saddle is not allowed in PvP!", 217, 255, 0);
+                }
+                else if (!buffs.ContainsKey(currentBuffType))
                 {
                     buffs.Add(currentBuffType, true);
                     args.Player.TPlayer.buffType[buffTypeIndex] = currentBuffType;
