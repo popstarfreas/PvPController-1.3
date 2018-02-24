@@ -169,6 +169,17 @@ namespace PvPController
             }
         }
 
+
+        /// <summary>
+        /// Gets whether this player has a given accessory matched by its netId
+        /// </summary>
+        /// <param name="netId">The netId of the accessory</param>
+        /// <returns>If the player has the accessory equipped</returns>
+        public bool HasAccessoryEquipped(int netId)
+        {
+            return TPlayer.armor.Where(p => p != null && p.netID == netId).Count() > 0;
+        }
+
         /// <summary>
         /// Ensures that this player has non-prefixed armor if the option is enabled
         /// </summary>

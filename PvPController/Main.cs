@@ -213,12 +213,6 @@ namespace PvPController
         /// </summary>
         private void ToggleSpectate(CommandArgs args)
         {
-            if (!args.TPlayer.hostile)
-            {
-                Players[args.Player.Index].Spectating = false;
-                return;
-            }
-
             if (!Players[args.Player.Index].Spectating)
             {
                 var secondsSinceSpectator = (DateTime.Now - Players[args.Player.Index].LastSpectating).TotalSeconds;
@@ -235,8 +229,22 @@ namespace PvPController
             {
                 Players[args.Player.Index].IsDead = true;
                 args.Player.TPlayer.dead = true;
+                args.Player.TPlayer.hostile = false;
+                args.Player.TPlayer.position.X = 0;
+                args.Player.TPlayer.position.Y = 0;
                 FakePlayerDeath(args.Player);
                 TSPlayer.All.SendMessage($"{args.Player.Name} has become a Spectator.", new Microsoft.Xna.Framework.Color(187, 144, 212));
+
+                if (args.Parameters.Count > 0)
+                {
+                    var name = string.Join(" ", args.Parameters);
+                    var player = TShock.Players.FirstOrDefault(p => p.Name == name) ?? TShock.Players.FirstOrDefault(p => p.Name.StartsWith(name));
+
+                    if (player != null)
+                    {
+                        args.Player.Teleport(player.TPlayer.position.X, player.TPlayer.position.Y);
+                    }
+                }
             } else
             {
                 Players[args.Player.Index].LastSpectating = DateTime.Now;
@@ -406,14 +414,7 @@ namespace PvPController
         }
 
         #endregion
-
-        /* Updates the config object with the existing config file, or creates a new
-         * one if it doesn't exist.
-         * 
-         * @param e
-         *          The command args object from tshock containing information such as
-         *          what player used the command, and the command parameters
-         */
+        
         /// <summary>
         /// Updates the config objet with the existing config file, or creates a new
         /// one if it doesn't exist
