@@ -430,9 +430,12 @@ namespace PvPController
 
             if (args.Player.TPlayer.hostile)
             {
+                // Reduced cooldown for Philosopher's Stone / Charm of Myths
+                bool hasReducedCooldown = args.Player.HasAccessoryEquipped(535) || args.Player.HasAccessoryEquipped(860);
+                int cooldown = hasReducedCooldown ? Controller.Config.PotionHealCooldown - 15 : Controller.Config.PotionHealCooldown;
                 handled = true;
 
-                if ((DateTime.Now - args.Player.LastHeal).TotalSeconds > Controller.Config.PotionHealCooldown)
+                if ((DateTime.Now - args.Player.LastHeal).TotalSeconds > cooldown)
                 {
                     args.Player.LastHeal = DateTime.Now;
                     args.Player.Heal(Controller.Config.PotionHealAmt);
