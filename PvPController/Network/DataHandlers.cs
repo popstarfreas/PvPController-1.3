@@ -270,21 +270,22 @@ namespace PvPController
 
             // The sourceItemType is only reliable if no projectile is involved
             // as sourceItemType is simply the active slot item
+            // TODO: Change this to use active slot item of server
             Item weapon = new Item();
             if (sourceProjectileType == -1)
             {
                 weapon.SetDefaults(sourceItemType);
-                weapon.prefix = (byte)sourceItemPrefix;
+                weapon.Prefix(sourceItemPrefix);
                 weapon.owner = args.Player.Index;
             }
             else if (args.Player.ProjectileWeapon[sourceProjectileType] != null)
             {
                 Item bestWeaponGuess = args.Player.ProjectileWeapon[sourceProjectileType];
                 weapon.SetDefaults(bestWeaponGuess.netID);
-                weapon.prefix = (byte)bestWeaponGuess.prefix;
+                weapon.Prefix(bestWeaponGuess.prefix);
                 weapon.owner = args.Player.Index;
             }
-
+            
             double internalDamage = Main.player[args.Player.Index].GetWeaponDamage(weapon);
 
             // Check whether the source of damage is banned
@@ -293,7 +294,7 @@ namespace PvPController
                 args.Player.TshockPlayer.SendData(PacketTypes.PlayerHp, "", playerId);
                 return true;
             }
-
+            
             internalDamage = DamageController.DecideDamage(args.Player, Controller.Players[playerId], weapon, sourceProjectileType, internalDamage);
             
             // Send Damage and Damage Text
@@ -394,7 +395,7 @@ namespace PvPController
             if (Controller.Config.BanPrefixedArmor && prefix > 0 && slotId >= 59 && slotId <= 61)
             {
                 Item fixedArmorItem = new Item();
-                fixedArmorItem.prefix = 0;
+                fixedArmorItem.Prefix(0);
                 fixedArmorItem.stack = 1;
                 Controller.DataSender.SendSlotUpdate(args.Player, slotId, fixedArmorItem);
             }
@@ -407,7 +408,7 @@ namespace PvPController
                 {
                     Item newEquip = new Item();
                     newEquip.SetDefaults(netId);
-                    newEquip.prefix = prefix;
+                    newEquip.Prefix(prefix);
                     if (EquipController.ShouldPreventEquip(args.Player, newEquip, slotId))
                     {
                         impossibleEquip = true;
