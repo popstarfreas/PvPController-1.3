@@ -95,7 +95,10 @@ namespace PvPController
                 EquipItems.Add(new EquipItem(netID, true));
             }
 
-            Synchroniser = new Synchroniser(this);
+            if (Config.UseDatabase)
+            {
+                Synchroniser = new Synchroniser(this);
+            }
             GetDataHandler = new GetDataHandlers(this);
             DataSender = new DataSender();
             SetupDatabase();
@@ -118,10 +121,13 @@ namespace PvPController
         /// </summary>
         private void SetupDatabase()
         {
-            Database = new Database(Config);
-            Weapons = Database.GetWeapons();
-            Projectiles = Database.GetProjectiles();
-            Database.addWeaponBuffs(Weapons);
+            if (Config.UseDatabase)
+            {
+                Database = new Database(Config);
+                Weapons = Database.GetWeapons();
+                Projectiles = Database.GetProjectiles();
+                Database.addWeaponBuffs(Weapons);
+            }
         }
 
         /// <summary>
@@ -432,8 +438,11 @@ namespace PvPController
 
             e.Player.SendSuccessMessage("Reloaded PvPController config.");
 
-            Weapons = Database.GetWeapons();
-            Projectiles = Database.GetProjectiles();
+            if (Config.UseDatabase)
+            {
+                Weapons = Database.GetWeapons();
+                Projectiles = Database.GetProjectiles();
+            }
         }
 
         /// <summary>
