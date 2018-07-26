@@ -461,12 +461,7 @@ namespace PvPController
                 args.Player.TPlayer.buffType[buffTypeIndex] = 0;
 
                 currentBuffType = args.Data.ReadByte();
-                if (currentBuffType == 130)
-                {
-                    args.Player.TshockPlayer.SetBuff(149, 60);
-                    args.Player.TshockPlayer.SendMessage($"BUFF VIOLATION: Slimy Saddle is not allowed in PvP!", 217, 255, 0);
-                }
-                else if (!buffs.ContainsKey(currentBuffType))
+                if (!buffs.ContainsKey(currentBuffType))
                 {
                     buffs.Add(currentBuffType, true);
                     args.Player.TPlayer.buffType[buffTypeIndex] = currentBuffType;
