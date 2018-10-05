@@ -97,11 +97,16 @@ namespace PvPController
 
             if (Config.UseDatabase)
             {
+                SetupDatabase();
+            }
+
+            if (Config.UseRedis)
+            {
                 Synchroniser = new Synchroniser(this);
             }
+
             GetDataHandler = new GetDataHandlers(this);
             DataSender = new DataSender();
-            SetupDatabase();
             SetupUpdateTimer();
             SetupDuplicateEquipPrevention();
         }
@@ -121,13 +126,10 @@ namespace PvPController
         /// </summary>
         private void SetupDatabase()
         {
-            if (Config.UseDatabase)
-            {
-                Database = new Database(Config);
-                Weapons = Database.GetWeapons();
-                Projectiles = Database.GetProjectiles();
-                Database.addWeaponBuffs(Weapons);
-            }
+            Database = new Database(Config);
+            Weapons = Database.GetWeapons();
+            Projectiles = Database.GetProjectiles();
+            Database.addWeaponBuffs(Weapons);
         }
 
         /// <summary>
@@ -422,7 +424,7 @@ namespace PvPController
         #endregion
         
         /// <summary>
-        /// Updates the config objet with the existing config file, or creates a new
+        /// Updates the config object with the existing config file, or creates a new
         /// one if it doesn't exist
         /// </summary>
         /// <param name="e">The command args object from tshock containing information such as

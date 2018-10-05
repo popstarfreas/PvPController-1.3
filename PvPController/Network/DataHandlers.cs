@@ -365,9 +365,12 @@ namespace PvPController
                 handled = true;
             } else if (args.Player.IsDead)
             {
-                args.Player.TPlayer.statLifeMax = 500;
-                args.Player.TPlayer.statLifeMax2 = 600;
-                args.Player.SetActiveHealth(args.Player.TPlayer.statLifeMax2);
+                if (Controller.Config.ForceMaxHealth)
+                {
+                    args.Player.TPlayer.statLifeMax = 500;
+                    args.Player.TPlayer.statLifeMax2 = 600;
+                    args.Player.SetActiveHealth(args.Player.TPlayer.statLifeMax2);
+                }
             }
 
             args.Player.IsDead = false;

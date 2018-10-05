@@ -17,6 +17,10 @@ namespace PvPController
         public DatabaseConfig Database;
         public bool PreventImpossibleEquipment;
         public bool UseDatabase;
+        public bool UseRedis;
+        public ArmorBuffDefense BeetleArmorStages;
+        public ArmorBuffDefense SolarArmorStages;
+        public bool ForceMaxHealth;
 
         public Config(string path = null)
         {
@@ -59,6 +63,10 @@ namespace PvPController
             PotionHealCooldown = fileConfig.PotionHealCooldown;
             PreventImpossibleEquipment = fileConfig.PreventImpossibleEquipment;
             UseDatabase = fileConfig.UseDatabase;
+            BeetleArmorStages = fileConfig.BeetleArmorStages;
+            SolarArmorStages = fileConfig.SolarArmorStages;
+            UseRedis = fileConfig.UseRedis;
+            ForceMaxHealth = fileConfig.ForceMaxHealth;
         }
 
         public void Write(string path)
@@ -85,6 +93,9 @@ namespace PvPController
             PotionHealCooldown = 60;
             PreventImpossibleEquipment = true;
             UseDatabase = false;
+            UseRedis = false;
+            ForceMaxHealth = true;
+            // BeetleArmorStages = new ArmorBuffDefense() { weakStage =  };
         }
     }
 }
