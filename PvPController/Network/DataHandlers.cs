@@ -369,8 +369,9 @@ namespace PvPController
                 {
                     args.Player.TPlayer.statLifeMax = 500;
                     args.Player.TPlayer.statLifeMax2 = 600;
-                    args.Player.SetActiveHealth(args.Player.TPlayer.statLifeMax2);
                 }
+
+                args.Player.SetActiveHealth(args.Player.TPlayer.statLifeMax2);
             }
 
             args.Player.IsDead = false;
