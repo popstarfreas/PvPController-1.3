@@ -221,7 +221,7 @@ namespace PvPController
         /// </summary>
         private void ToggleSpectate(CommandArgs args)
         {
-            if (!Players[args.Player.Index].Spectating)
+			if (!Players[args.Player.Index].Spectating)
             {
                 var secondsSinceSpectator = (DateTime.Now - Players[args.Player.Index].LastSpectating).TotalSeconds;
                 if (secondsSinceSpectator < 30)
@@ -235,7 +235,10 @@ namespace PvPController
 
             if (Players[args.Player.Index].Spectating)
             {
-                Players[args.Player.Index].IsDead = true;
+				if (!args.Player.AwaitingResponse.ContainsKey("spectate"))
+					args.Player.AwaitingResponse.Add("spectate", null);
+
+				Players[args.Player.Index].IsDead = true;
                 args.Player.TPlayer.dead = true;
                 args.Player.TPlayer.hostile = false;
                 args.Player.TPlayer.position.X = 0;
@@ -254,8 +257,11 @@ namespace PvPController
                     }
                 }
             } else
-            {
-                Players[args.Player.Index].LastSpectating = DateTime.Now;
+			{
+				if (args.Player.AwaitingResponse.ContainsKey("spectate"))
+					args.Player.AwaitingResponse.Remove("spectate");
+
+				Players[args.Player.Index].LastSpectating = DateTime.Now;
                 args.Player.Spawn();
                 TSPlayer.All.SendMessage($"{args.Player.Name} is now not a Spectator.", new Microsoft.Xna.Framework.Color(187, 144, 212));
             }
