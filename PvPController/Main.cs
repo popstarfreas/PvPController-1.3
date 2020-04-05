@@ -14,6 +14,8 @@ namespace PvPController
     [ApiVersion(2, 0)]
     public class PvPController : TerrariaPlugin
     {
+        public static int MAX_SLOT_ID = NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots + NetItem.MiscEquipSlots
+                    + NetItem.MiscDyeSlots - 1;
         // Events for other plugins
         public delegate void PlayerKillHandler(object sender, PlayerKillEventArgs e);
         public static event PlayerKillHandler OnPlayerKill;

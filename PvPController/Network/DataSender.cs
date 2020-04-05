@@ -43,68 +43,12 @@ namespace PvPController
         /// <param name="stack"></param>
         internal static void ForceServerItem(Player player, int slotId, Item newItem)
         {
-            if (slotId < NetItem.InventorySlots)
+            Item? item = Inventory.GetItem(player.TPlayer, slotId);
+            item.netDefaults(newItem.netID);
+            if (item.netID != 0)
             {
-                //58
-                player.TPlayer.inventory[slotId].netDefaults(newItem.netID);
-
-                if (player.TPlayer.inventory[slotId].netID != 0)
-                {
-                    player.TPlayer.inventory[slotId] = newItem;
-                    NetMessage.SendData(5, -1, -1, NetworkText.Empty, player.TPlayer.whoAmI, slotId, player.TPlayer.inventory[slotId].prefix, player.TPlayer.inventory[slotId].stack);
-                }
-            }
-            else if (slotId < NetItem.InventorySlots + NetItem.ArmorSlots)
-            {
-                //59-78
-                var index = slotId - NetItem.InventorySlots;
-                player.TPlayer.armor[index].netDefaults(newItem.netID);
-
-                if (player.TPlayer.armor[index].netID != 0)
-                {
-                    player.TPlayer.armor[index] = newItem;
-                    NetMessage.SendData(5, -1, -1, NetworkText.Empty, player.TPlayer.whoAmI, slotId, player.TPlayer.armor[index].prefix, player.TPlayer.armor[index].stack);
-                }
-            }
-            else if (slotId < NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots)
-            {
-                //79-88
-                var index = slotId - (NetItem.InventorySlots + NetItem.ArmorSlots);
-                player.TPlayer.dye[index].netDefaults(newItem.netID);
-
-                if (player.TPlayer.dye[index].netID != 0)
-                {
-                    player.TPlayer.dye[index] = newItem;
-                    NetMessage.SendData(5, -1, -1, NetworkText.Empty, player.TPlayer.whoAmI, slotId, player.TPlayer.dye[index].prefix, player.TPlayer.dye[index].stack);
-                }
-            }
-            else if (slotId <
-                NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots + NetItem.MiscEquipSlots)
-            {
-                //89-93
-                var index = slotId - (NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots);
-                player.TPlayer.miscEquips[index].netDefaults(newItem.netID);
-
-                if (player.TPlayer.miscEquips[index].netID != 0)
-                {
-                    player.TPlayer.miscEquips[index] = newItem;
-                    NetMessage.SendData(5, -1, -1, NetworkText.Empty, player.TPlayer.whoAmI, slotId, player.TPlayer.miscEquips[index].prefix, player.TPlayer.miscEquips[index].stack);
-                }
-            }
-            else if (slotId <
-                NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots + NetItem.MiscEquipSlots
-                + NetItem.MiscDyeSlots)
-            {
-                //93-98
-                var index = slotId - (NetItem.InventorySlots + NetItem.ArmorSlots + NetItem.DyeSlots
-                    + NetItem.MiscEquipSlots);
-                player.TPlayer.miscDyes[index].netDefaults(newItem.netID);
-
-                if (player.TPlayer.miscDyes[index].netID != 0)
-                {
-                    player.TPlayer.miscDyes[index] = newItem;
-                    NetMessage.SendData(5, -1, -1, NetworkText.Empty, player.TPlayer.whoAmI, slotId, player.TPlayer.miscDyes[index].prefix, player.TPlayer.miscDyes[index].stack);
-                }
+                Inventory.SetItem(player.TPlayer, slotId, newItem);
+                NetMessage.SendData(5, -1, -1, NetworkText.Empty, player.TPlayer.whoAmI, slotId, newItem.prefix, newItem.stack);
             }
         }
 

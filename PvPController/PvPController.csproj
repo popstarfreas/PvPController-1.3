@@ -87,6 +87,7 @@
     <Compile Include="DamageUtils.cs" />
     <Compile Include="Database.cs" />
     <Compile Include="Config\DatabaseConfig.cs" />
+    <Compile Include="Inventory.cs" />
     <Compile Include="Network\DataHandlers.cs" />
     <Compile Include="Network\DataSender.cs" />
     <Compile Include="Main.cs" />
