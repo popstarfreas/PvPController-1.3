@@ -4,16 +4,14 @@ using Terraria.Localization;
 
 namespace PvPController
 {
-    internal class DataSender
+    internal static class DataSender
     {
-
-
         /// <summary>
         /// Forces a players active health to a given value
         /// </summary>
         /// <param name="player">The player that is being updated</param>
         /// <param name="health">The new health value</param>
-        internal void SendClientHealth(Player player, int health)
+        internal static void SendClientHealth(Player player, int health)
         {
             ForceClientSSC(player, true);
             player.TPlayer.statLife = health;
@@ -28,7 +26,7 @@ namespace PvPController
         /// <param name="slotId">The slot id of the slot to update</param>
         /// <param name="prefix">The prefix to set on the item</param>
         /// <param name="netId">The netId to set on the item</param>
-        internal void SendSlotUpdate(Player player, int slotId, Item newItem)
+        internal static void SendSlotUpdate(Player player, int slotId, Item newItem)
         {
             ForceClientSSC(player, true);
             ForceServerItem(player, slotId, newItem);
@@ -43,7 +41,7 @@ namespace PvPController
         /// <param name="prefix"></param>
         /// <param name="netId"></param>
         /// <param name="stack"></param>
-        internal void ForceServerItem(Player player, int slotId, Item newItem)
+        internal static void ForceServerItem(Player player, int slotId, Item newItem)
         {
             if (slotId < NetItem.InventorySlots)
             {
@@ -115,7 +113,7 @@ namespace PvPController
         /// </summary>
         /// <param name="on">Whether SSC is to be set to on or not</param>
         /// <param name="player"></param>
-        internal void ForceClientSSC(Player player, bool on)
+        internal static void ForceClientSSC(Player player, bool on)
         {
             if (!TShock.ServerSideCharacterConfig.Enabled)
             {
@@ -131,7 +129,7 @@ namespace PvPController
         /// <param name="player">The TSPlayer object of the player to get hurt</param>
         /// <param name="hitDirection">The hit direction (left or right, -1 or 1)</param>
         /// <param name="damage">The amount of damage to deal to the player</param>
-        internal void SendPlayerDamage(TSPlayer player, int hitDirection, int damage)
+        internal static void SendPlayerDamage(TSPlayer player, int hitDirection, int damage)
         {
             // This flag permutation gives low invinc frames for proper client
             // sync
@@ -161,7 +159,7 @@ namespace PvPController
         /// Sends a raw packet that a player is dead to everyone
         /// </summary>
         /// <param name="player">The player who died</param>
-        internal void SendPlayerDeath(TSPlayer player)
+        internal static void SendPlayerDeath(TSPlayer player)
         {
             byte[] playerDeath = new PacketFactory()
                 .SetType((short)PacketTypes.PlayerDeathV2)

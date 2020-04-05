@@ -189,17 +189,17 @@ namespace PvPController
             if (TPlayer.armor[0].prefix > 0)
             {
                 TPlayer.armor[0].prefix = 0;
-                Controller.DataSender.SendSlotUpdate(this, 59, TPlayer.armor[0]);
+                DataSender.SendSlotUpdate(this, 59, TPlayer.armor[0]);
             }
 
             if (TPlayer.armor[1].prefix > 0)
             {
-                Controller.DataSender.SendSlotUpdate(this, 60, TPlayer.armor[1]);
+                DataSender.SendSlotUpdate(this, 60, TPlayer.armor[1]);
             }
 
             if (TPlayer.armor[2].prefix > 0)
             {
-                Controller.DataSender.SendSlotUpdate(this, 61, TPlayer.armor[2]);
+                DataSender.SendSlotUpdate(this, 61, TPlayer.armor[2]);
             }
         }
 
@@ -294,7 +294,7 @@ namespace PvPController
                 TPlayer.statLife = TPlayer.statLifeMax2;
             }
 
-            Controller.DataSender.SendClientHealth(this, TPlayer.statLife);
+            DataSender.SendClientHealth(this, TPlayer.statLife);
         }
 
         /// <summary>
@@ -309,7 +309,7 @@ namespace PvPController
                 TPlayer.statLife = TPlayer.statLifeMax2;
             }
 
-            Controller.DataSender.SendClientHealth(this, TPlayer.statLife);
+            DataSender.SendClientHealth(this, TPlayer.statLife);
         }
 
         /// <summary>
@@ -324,7 +324,7 @@ namespace PvPController
         public void ApplyPlayerDamage(PlayerKiller killer, Item killersWeapon, int dir, int damage, int realDamage)
         {
             // Send the damage using the special method to avoid invincibility frames issue
-            Controller.DataSender.SendPlayerDamage(TshockPlayer, dir, damage);
+            DataSender.SendPlayerDamage(TshockPlayer, dir, damage);
             Controller.RaisePlayerDamageEvent(this, new PlayerDamageEventArgs(killer.Player, TshockPlayer, killersWeapon, realDamage));
             TPlayer.statLife -= realDamage;
 
@@ -337,7 +337,7 @@ namespace PvPController
             {
                 TshockPlayer.Dead = true;
                 IsDead = true;
-                Controller.DataSender.SendPlayerDeath(TshockPlayer);
+                DataSender.SendPlayerDeath(TshockPlayer);
 
                 if (TPlayer.hostile && killer != null)
                 {
@@ -347,7 +347,7 @@ namespace PvPController
                 return;
             }
 
-            Controller.DataSender.SendClientHealth(this, TPlayer.statLife);
+            DataSender.SendClientHealth(this, TPlayer.statLife);
         }
     }
 }

@@ -401,7 +401,7 @@ namespace PvPController
                 Item fixedArmorItem = new Item();
                 fixedArmorItem.Prefix(0);
                 fixedArmorItem.stack = 1;
-                Controller.DataSender.SendSlotUpdate(args.Player, slotId, fixedArmorItem);
+                DataSender.SendSlotUpdate(args.Player, slotId, fixedArmorItem);
             }
 
             bool impossibleEquip = false;

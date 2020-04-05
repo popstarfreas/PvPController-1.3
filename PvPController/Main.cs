@@ -24,7 +24,6 @@ namespace PvPController
 
         public Timer OnSecondUpdate;
         private GetDataHandlers GetDataHandler;
-        internal DataSender DataSender;
         private string ConfigPath;
         public Config Config;
         public Database Database;
@@ -106,7 +105,6 @@ namespace PvPController
             }
 
             GetDataHandler = new GetDataHandlers(this);
-            DataSender = new DataSender();
             SetupUpdateTimer();
             SetupDuplicateEquipPrevention();
         }
