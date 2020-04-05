@@ -76,7 +76,7 @@ namespace PvPController
             Order = 6;
             ActiveInstance = this;
         }
-        
+
         /// <summary>
         /// Registers the appropriate hooks, loads the existing config or write one if not, and then starts the one second update timer.
         /// </summary>
@@ -151,7 +151,7 @@ namespace PvPController
             Players[args.Who] = new Player(TShock.Players[args.Who], this);
             Players[args.Who].IsDead = true;
 
-            for (int i = 0; i < (int)(NetItem.ArmorSlots/2); i++)
+            for (int i = 0; i < (int)(NetItem.ArmorSlots / 2); i++)
             {
                 if (Players[args.Who].TPlayer.armor[i].netID != 0
                     && EquipController.ShouldPreventEquip(Players[args.Who], Players[args.Who].TPlayer.armor[i], 59 + i))
@@ -205,7 +205,7 @@ namespace PvPController
         {
             OnPlayerKill?.Invoke(sender, args);
         }
-        
+
         /// <summary>
         /// Riases a player death event if there are any listeners
         /// </summary>
@@ -235,6 +235,9 @@ namespace PvPController
 
             if (Players[args.Player.Index].Spectating)
             {
+                if (!args.Player.AwaitingResponse.ContainsKey("spectate"))
+                    args.Player.AwaitingResponse.Add("spectate", null);
+
                 Players[args.Player.Index].IsDead = true;
                 args.Player.TPlayer.dead = true;
                 args.Player.TPlayer.hostile = false;
@@ -253,8 +256,12 @@ namespace PvPController
                         args.Player.Teleport(player.TPlayer.position.X, player.TPlayer.position.Y);
                     }
                 }
-            } else
+            }
+            else
             {
+                if (args.Player.AwaitingResponse.ContainsKey("spectate"))
+                    args.Player.AwaitingResponse.Remove("spectate");
+
                 Players[args.Player.Index].LastSpectating = DateTime.Now;
                 args.Player.Spawn();
                 TSPlayer.All.SendMessage($"{args.Player.Name} is now not a Spectator.", new Microsoft.Xna.Framework.Color(187, 144, 212));
@@ -282,7 +289,7 @@ namespace PvPController
                     plr.SendRawData(playerDeath);
             }
         }
-        
+
         /// <summary>
         /// Prevents spectators being revealed to people who just joined
         /// </summary>
@@ -334,7 +341,7 @@ namespace PvPController
                                     player.TshockPlayer.SendMessage($"ACCESSORY VIOLATION: {type} {item.Name} is not allowed for PvP!", 217, 255, 0);
                                 }
                             }
-                            
+
                             if (Config.BanPrefixedArmor)
                             {
                                 player.CheckArmorAndEnforce(GetDataHandler);
@@ -342,7 +349,8 @@ namespace PvPController
                         }
                     }
                 }
-            } catch(Exception e)
+            }
+            catch (Exception e)
             {
                 TShock.Log.ConsoleError(e.Message);
             }
@@ -422,7 +430,7 @@ namespace PvPController
         }
 
         #endregion
-        
+
         /// <summary>
         /// Updates the config object with the existing config file, or creates a new
         /// one if it doesn't exist
